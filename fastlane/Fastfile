@@ -27,6 +27,7 @@ platform :ios do
   desc "Build Xdrip4iOS"
   lane :build_xdrip4ios do
     setup_ci if ENV['CI']
+    ENV["MATCH_READONLY"] = "false" if ENV['CI']
     
     update_project_team(
       path: "#{GITHUB_WORKSPACE}/xdrip.xcodeproj",
