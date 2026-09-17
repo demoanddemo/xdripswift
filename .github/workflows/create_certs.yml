@@ -2,6 +2,12 @@ name: 3. Create Certificates
 run-name: Create Certificates (${{ github.ref_name }})
 on:
   workflow_dispatch:
+    inputs:
+      nuke_before_create:
+        description: "Nuke existing appstore certs/profiles before creating new ones"
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   validate:
@@ -35,6 +41,17 @@ jobs:
         run: sudo sntp -sS time.windows.com
 
       # Create or update certificates for app
+      - name: Nuke existing certificates (optional)
+        if: ${{ inputs.nuke_before_create }}
+        run: bundle exec fastlane nuke_certs
+        env:
+          TEAMID: ${{ secrets.TEAMID }}
+          GH_PAT: ${{ secrets.GH_PAT }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          FASTLANE_KEY_ID: ${{ secrets.FASTLANE_KEY_ID }}
+          FASTLANE_ISSUER_ID: ${{ secrets.FASTLANE_ISSUER_ID }}
+          FASTLANE_KEY: ${{ secrets.FASTLANE_KEY }}
+
       - name: Create Certificates
         run: bundle exec fastlane certs
         env:
