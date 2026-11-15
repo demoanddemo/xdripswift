@@ -11,7 +11,7 @@ import SwiftUI
 /// Shows transmitter reliability totals and the hourly reading timeline.
 struct TransmitterReadSuccessView: View {
     let display: TransmitterReadSuccessDisplay
-    let bluetoothPeripheralType: BluetoothPeripheralType
+    let transmitterTitle: String
 
     var body: some View {
         List {
@@ -43,7 +43,7 @@ struct TransmitterReadSuccessView: View {
                 Text(Texts_BluetoothPeripheralView.status)
                     .foregroundStyle(ConstantsUI.tableViewHeaderTextColor)
             } footer: {
-                Text(Texts_BluetoothPeripheralView.readSuccessCadenceFooter(bluetoothPeripheralType: bluetoothPeripheralType.bluetoothPeripheralDisplayTitle))
+                Text(Texts_BluetoothPeripheralView.readSuccessCadenceFooter(bluetoothPeripheralType: transmitterTitle))
                     .foregroundStyle(ConstantsUI.listSectionFooterTextColor)
                     .padding(.bottom, ConstantsUI.listSectionFooterBottomPadding)
             }
@@ -70,6 +70,7 @@ struct TransmitterReadSuccessView: View {
         .background(ConstantsUI.listBackGroundColor)
         .navigationTitle(Texts_BluetoothPeripheralView.readSuccess)
         .navigationBarTitleDisplayMode(.large)
+        .onlineHelp(.readSuccess)
         .colorScheme(.dark)
     }
 

@@ -28,8 +28,9 @@ import OSLog
     @Published private(set) var showCarbsTreatments = UserDefaults.standard.showCarbsTreatmentsInList
     @Published private(set) var showBasalTreatments = UserDefaults.standard.showBasalTreatmentsInList
     @Published private(set) var showBgCheckTreatments = UserDefaults.standard.showBgCheckTreatmentsInList
+    @Published private(set) var showBasalInjectionTreatments = UserDefaults.standard.showBasalInjectionTreatmentsInList
     @Published private(set) var showNoteTreatments = UserDefaults.standard.showNoteTreatmentsInList
-    @Published private(set) var selectedDate = Date().toMidnight()
+    @Published private(set) var selectedDate = Calendar.current.startOfDay(for: Date())
 
     // MARK: - private properties
 
@@ -38,7 +39,9 @@ import OSLog
     private let log = OSLog(subsystem: ConstantsLog.subSystem, category: ConstantsLog.categoryApplicationDataTreatments)
 
     private var allTreatments: [TreatmentSnapshot] = []
-    private var didInitializeView = false
+    private var lastViewedDay = Calendar.current.startOfDay(for: Date())
+    private var treatmentsUpdateCounter = UserDefaults.standard.nightscoutTreatmentsUpdateCounter
+    private(set) var reloadTask: Task<Void, Never>?
 
     // MARK: - initialization
 
@@ -53,36 +56,106 @@ import OSLog
 
     /// Performs the first load, or refreshes the existing model when the tab becomes visible again.
     func initializeViewIfNeeded() {
-        if didInitializeView {
-            reloadTreatments()
+        let today = Calendar.current.startOfDay(for: Date())
+        if lastViewedDay != today {
+            // Return to today after a day change, but preserve deliberate history browsing
+            // when reopening the tab or returning from the background on the same day.
+            lastViewedDay = today
+            selectedDateChanged(today)
             return
         }
 
-        didInitializeView = true
         reloadTreatments()
     }
 
-    /// Reloads the treatment history and reapplies the current filters.
+    /// Loads only the selected day's snapshots without making the main thread wait for SQLite.
     func reloadTreatments() {
         syncFilterSettingsFromUserDefaults()
+        treatmentsUpdateCounter = UserDefaults.standard.nightscoutTreatmentsUpdateCounter
+        reloadTask?.cancel()
 
-        allTreatments = treatmentEntryAccessor
-            .getLatestTreatments(howOld: nil)
-            .filter { !$0.treatmentdeleted }
-            .sorted(by: { $0.date > $1.date })
-            .map { TreatmentSnapshot(treatmentEntry: $0) }
+        let fromDate = Calendar.current.startOfDay(for: selectedDate)
+        guard let toDate = Calendar.current.date(byAdding: .day, value: 1, to: fromDate) else { return }
+        let mainContext = coreDataManager.mainManagedObjectContext
+        let context = coreDataManager.privateManagedObjectContext
 
-        applyFilters()
+        // The parent cannot see unsaved main-context edits. Retain those objects on main until
+        // publication, including edits which are saved while the private fetch is waiting.
+        // Only dates and snapshots cross the context boundary, never these managed objects.
+        let pendingTreatments = mainContext.insertedObjects.union(mainContext.updatedObjects)
+            .union(mainContext.deletedObjects).compactMap { $0 as? TreatmentEntry }
+
+        reloadTask = Task { @MainActor [weak self] in
+            do {
+                try Task.checkCancellation()
+                let snapshots = try await context.perform {
+                    let request: NSFetchRequest<TreatmentEntry> = TreatmentEntry.fetchRequest()
+                    // Use calendar midnights rather than 24 hours so clock-change days are complete.
+                    // The old fetch materialised the whole history before applying this day filter.
+                    request.predicate = NSPredicate(format: "date >= %@ AND date < %@ AND (treatmentdeleted == NO OR treatmentdeleted == nil)", fromDate as NSDate, toDate as NSDate)
+                    request.sortDescriptors = [NSSortDescriptor(key: #keyPath(TreatmentEntry.date), ascending: false)]
+                    request.returnsObjectsAsFaults = false
+                    let treatments = try context.fetch(request)
+                    let temporaryTreatments = treatments.filter { $0.objectID.isTemporaryID }
+                    if !temporaryTreatments.isEmpty {
+                        try context.obtainPermanentIDs(for: temporaryTreatments)
+                    }
+                    return treatments.map { TreatmentSnapshot(treatmentEntry: $0) }
+                }
+                // Cancelling a request does not interrupt SQLite. Discard its eventual result so
+                // a slower previous day or refresh cannot overwrite the most recent selection.
+                try Task.checkCancellation()
+                guard let self else { return }
+
+                let pending = Set(pendingTreatments).union(mainContext.insertedObjects.compactMap { $0 as? TreatmentEntry })
+                    .union(mainContext.updatedObjects.compactMap { $0 as? TreatmentEntry })
+                    .union(mainContext.deletedObjects.compactMap { $0 as? TreatmentEntry })
+                let temporaryTreatments = pending.filter { !$0.isDeleted && $0.managedObjectContext != nil && $0.objectID.isTemporaryID }
+                if !temporaryTreatments.isEmpty {
+                    // Editors retain these IDs after the row is published. Keep the existing
+                    // permanent-ID guarantee even for a local entry which has not been saved yet.
+                    try mainContext.obtainPermanentIDs(for: Array(temporaryTreatments))
+                }
+                var treatments = Dictionary(uniqueKeysWithValues: snapshots.map { ($0.objectID, $0) })
+                for treatment in pending {
+                    // Remove the parent's version first. An edit can move a treatment to another
+                    // day, and an unsaved deletion must not reappear from the private snapshot.
+                    treatments.removeValue(forKey: treatment.objectID)
+                    if treatment.managedObjectContext != nil, !treatment.isDeleted, !treatment.treatmentdeleted,
+                       treatment.date >= fromDate, treatment.date < toDate {
+                        treatments[treatment.objectID] = TreatmentSnapshot(treatmentEntry: treatment)
+                    }
+                }
+                self.allTreatments = treatments.values.sorted { $0.date > $1.date }
+                self.applyFilters()
+            } catch is CancellationError {
+                // A newer load owns publication. Keep its data and let the old request finish.
+            } catch {
+                guard !Task.isCancelled, let self else { return }
+                trace("failed to load treatment snapshots: %{public}@", log: self.log, category: ConstantsLog.categoryApplicationDataTreatments, type: .error, error.localizedDescription)
+            }
+        }
     }
 
     func handleUserDefaultsDidChange() {
-        reloadTreatments()
+        // Both Nightscout and CareLink already advance this counter after treatment changes.
+        // Other defaults notifications only affect presentation. Fetching the whole history on
+        // every notification blocked main and caused a scene update watchdog termination.
+        if treatmentsUpdateCounter != UserDefaults.standard.nightscoutTreatmentsUpdateCounter {
+            reloadTreatments()
+        } else {
+            syncFilterSettingsFromUserDefaults()
+            applyFilters()
+        }
     }
 
     func selectedDateChanged(_ newDate: Date) {
-        selectedDate = min(newDate, Date()).toMidnight()
+        selectedDate = Calendar.current.startOfDay(for: min(newDate, Date()))
         updateDayName()
+        // Do not leave the previous day's rows visible while the selected day's query is pending.
+        allTreatments = []
         applyFilters()
+        reloadTreatments()
         datePickerReset = UUID()
     }
 
@@ -117,6 +190,12 @@ import OSLog
     func toggleBgCheckFilter() {
         UserDefaults.standard.showBgCheckTreatmentsInList.toggle()
         showBgCheckTreatments = UserDefaults.standard.showBgCheckTreatmentsInList
+        applyFilters()
+    }
+
+    func toggleBasalInjectionFilter() {
+        UserDefaults.standard.showBasalInjectionTreatmentsInList.toggle()
+        showBasalInjectionTreatments = UserDefaults.standard.showBasalInjectionTreatmentsInList
         applyFilters()
     }
 
@@ -165,12 +244,13 @@ import OSLog
         showCarbsTreatments = UserDefaults.standard.showCarbsTreatmentsInList
         showBasalTreatments = UserDefaults.standard.showBasalTreatmentsInList
         showBgCheckTreatments = UserDefaults.standard.showBgCheckTreatmentsInList
+        showBasalInjectionTreatments = UserDefaults.standard.showBasalInjectionTreatmentsInList
         showNoteTreatments = UserDefaults.standard.showNoteTreatmentsInList
         showBasalFilter = UserDefaults.standard.dataFlowPolicy.showsPumpData
     }
 
     private func applyFilters() {
-        let selectedMidnight = selectedDate.toMidnight()
+        let selectedMidnight = Calendar.current.startOfDay(for: selectedDate)
 
         filteredTreatments = allTreatments.filter { treatment in
             Calendar.current.compare(treatment.date, to: selectedMidnight, toGranularity: .day) == .orderedSame
@@ -194,6 +274,11 @@ import OSLog
 
         if !showBgCheckTreatments {
             filteredTreatments.removeAll(where: { $0.treatmentType == .BgCheck })
+        }
+
+        // Injection visibility is independent of both general Notes and pump basal rates.
+        if !showBasalInjectionTreatments {
+            filteredTreatments.removeAll(where: { $0.treatmentType == .BasalInjection })
         }
 
         if !showNoteTreatments {
@@ -256,7 +341,7 @@ struct TreatmentSnapshot: Hashable {
 
     var isEditable: Bool {
         switch treatmentType {
-        case .Insulin, .Carbs, .Exercise, .BgCheck, .Note:
+        case .Insulin, .BasalInjection, .Carbs, .Exercise, .BgCheck, .Note:
             return true
         default:
             return false
@@ -264,54 +349,12 @@ struct TreatmentSnapshot: Hashable {
     }
 
     var iconSystemName: String {
-        switch treatmentType {
-        case .Insulin:
-            return "arrowtriangle.down.fill"
-        case .Carbs:
-            return "circle.fill"
-        case .Exercise:
-            return "heart.fill"
-        case .BgCheck:
-            return "drop.fill"
-        case .Basal, .AutomaticBasal:
-            return "chart.bar.fill"
-        case .SiteChange:
-            return "cross.vial.fill"
-        case .SensorStart:
-            return "sensor.tag.radiowaves.forward.fill"
-        case .PumpBatteryChange:
-            return "battery.100percent"
-        case .Note:
-            return "note.text"
-        }
-    }
-
-    var iconColor: Color {
-        let baseColor: Color
-
-        switch treatmentType {
-        case .Insulin:
-            baseColor = ConstantsGlucoseChart.bolusTreatmentColor
-        case .Carbs:
-            baseColor = ConstantsGlucoseChart.carbsTreatmentColor
-        case .Exercise:
-            baseColor = Color(red: 1, green: 0, blue: 1)
-        case .BgCheck:
-            baseColor = ConstantsGlucoseChart.bgCheckTreatmentColorInner
-        case .Basal, .AutomaticBasal:
-            baseColor = ConstantsGlucoseChart.basalTreatmentColor
-        case .SiteChange, .SensorStart, .PumpBatteryChange:
-            baseColor = .yellow
-        case .Note:
-            baseColor = ConstantsGlucoseChart.noteTreatmentColor
-        }
-
-        return date > Date() ? baseColor.opacity(0.5) : baseColor
+        treatmentType.iconSystemName
     }
 
     var iconSize: CGFloat {
         if isSmallBolus {
-            return 11
+            return GlucoseChartTreatmentStyle.treatmentIconSize * GlucoseChartTreatmentStyle.smallBolusScale
         }
 
         if treatmentType == .BgCheck {
@@ -359,7 +402,7 @@ struct TreatmentSnapshot: Hashable {
         }
 
         if treatmentType == .Note {
-            return notePreviewText
+            return notes
         }
 
         return nil
@@ -373,25 +416,72 @@ struct TreatmentSnapshot: Hashable {
         return Color(.colorPrimary)
     }
 
-    var secondaryTextColor: Color {
-        Color(.colorTertiary)
-    }
-
     private var isSmallBolus: Bool {
         treatmentType == .Insulin && rawValue < UserDefaults.standard.smallBolusTreatmentThreshold
     }
+}
 
-    private var notePreviewText: String? {
-        guard let notes else {
-            return nil
-        }
-
-        guard notes.hasPrefix(ConstantsNightscout.postProcessingNotePrefix) else {
-            return notes
-        }
-
-        return String(notes.dropFirst(ConstantsNightscout.postProcessingNotePrefix.count))
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .toNilIfLength0()
+/// Shared symbols and colors for treatment rows and type selection.
+extension TreatmentType {
+    /// Use native symbols consistently in rows and the add/edit flow.
+    func iconView(size: Double = GlucoseChartTreatmentStyle.treatmentIconSize) -> some View {
+        Image(systemName: iconSystemName)
+            .font(.system(size: size, weight: .regular))
+            .foregroundStyle(iconColor)
     }
+
+    var iconSystemName: String {
+        switch self {
+        case .Insulin:
+            return GlucoseChartTreatmentStyle.bolusSymbol
+        case .BasalInjection:
+            return GlucoseChartTreatmentStyle.basalInjectionSymbol
+        case .Carbs:
+            return GlucoseChartTreatmentStyle.carbsSymbol
+        case .Exercise:
+            return "figure.run"
+        case .BgCheck:
+            return GlucoseChartTreatmentStyle.bgCheckSymbol
+        case .Basal, .AutomaticBasal:
+            return "chart.bar.fill"
+        case .SiteChange:
+            return "cross.vial.fill"
+        case .SensorStart:
+            return "sensor.tag.radiowaves.forward.fill"
+        case .PumpBatteryChange:
+            // Match the existing battery fallback because the percent-suffixed symbol requires iOS 17.
+            if #available(iOS 17.0, *) {
+                return "battery.100percent"
+            }
+            return "minus.plus.batteryblock.fill"
+        case .Note:
+            return GlucoseChartTreatmentStyle.noteSymbol
+        }
+    }
+
+    var iconColor: Color {
+        let baseColor: Color
+
+        switch self {
+        case .Insulin:
+            baseColor = ConstantsGlucoseChart.bolusTreatmentColor
+        case .BasalInjection:
+            baseColor = ConstantsGlucoseChart.basalInjectionTreatmentColor
+        case .Carbs:
+            baseColor = ConstantsGlucoseChart.carbsTreatmentColor
+        case .Exercise:
+            baseColor = Color(red: 0.7, green: 0.25, blue: 0.85)
+        case .BgCheck:
+            baseColor = ConstantsGlucoseChart.bgCheckTreatmentColorInner
+        case .Basal, .AutomaticBasal:
+            baseColor = ConstantsGlucoseChart.basalTreatmentColor
+        case .SiteChange, .SensorStart, .PumpBatteryChange:
+            baseColor = .yellow
+        case .Note:
+            baseColor = ConstantsGlucoseChart.noteTreatmentColor
+        }
+
+        return baseColor
+    }
+
 }

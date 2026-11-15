@@ -38,7 +38,7 @@
 "failed" = "Failed";
 "calibrationNotNecessary" = "When using the native transmitter algorithm, manual calibration is not available.\n\nIf you want to calibrate, you can switch to the xDrip algorithm in the transmitter screen (if available).";
 "dexcomBatteryTooLow" = "The Transmitter battery is too low!";
-"enterSensorCode" = "If you don't know the sensor code, leave this empty to use 0000. Pressing OK without a code will use 0000 as the sensor code, or will just capture the current session if one is already started.";
+"enterSensorCode" = "Scan the sensor label or choose a photo to read the sensor code.";
 "stopSensorConfirmation" = "Are you sure you want to stop the sensor?";
 "calibrationNotNecessary" = "When using the native transmitter algorithm, manual calibration is not available.\n\nIf you want to calibrate, you can switch to the xDrip algorithm in the transmitter screen (if available).";
 "noSensorData" = "No sensor data";
@@ -54,14 +54,12 @@
 "showHideItemsTitle" = "Quick Show/Hide";
 "showHideHomeScreenTitle" = "Home Screen";
 "showHideHomeScreenFooter" = "Show or hide main home screen elements, useful when using smaller iPhone screen sizes";
-"showHideGlucoseChartTitle" = "Glucose Chart";
+"showHideGlucoseChartTitle" = "Chart";
 "showHideStandByModeTitle" = "StandBy Mode";
 "showHideStandByModeFooter" = "Changes how the StandBy mode will be displayed if activated in the iPhone settings";
-"showHideAdditionalItemsTitle" = "Additional Items";
 "postProcessingTitle" = "Glucose Adjustments";
 "postProcessingPreviewHours" = "Preview Hours";
-"postProcessingAdjustment" = "Adjustment";
-"postProcessingEnable" = "Enable";
+"postProcessingAdjustment" = "Glucose Adjustment";
 "postProcessingOffset" = "Offset";
 "postProcessingScale" = "Scale";
 "postProcessingShape" = "Emphasis";
@@ -72,7 +70,7 @@
 "postProcessingNeutralDescription" = "Applies the scale effect evenly through the glucose range.";
 "postProcessingSofterLows" = "Lows";
 "postProcessingSofterLowsDescription" = "Applies more of the scale effect at lower glucose values and less at higher values.";
-"postProcessingSmoothing" = "Smoothing";
+"postProcessingSmoothing" = "Glucose Smoothing";
 "postProcessingStrength" = "Strength";
 "postProcessingLight" = "Light";
 "postProcessingMedium" = "Medium";
@@ -154,7 +152,6 @@
 "sensorManagementStarted" = "Started";
 "sensorManagementEnds" = "Ends";
 "sensorManagementCalibrationValue" = "Calibration Value";
-"sensorManagementCalibrationPending" = "Pending...";
 "sensorManagementCalibrationStableTrend" = "Stable trend";
 "sensorManagementCalibrationSlightlyLow" = "Slightly Low";
 "sensorManagementCalibrationSlightlyHigh" = "Slightly High";
@@ -192,12 +189,14 @@
 "sensorHealthTestTemporaryIssue" = "Test Temporary Issue in 5 Seconds";
 "sensorHealthTestSensorFailure" = "Test Sensor Failure in 5 Seconds";
 "sensorHealthTestTransmitterFailure" = "Test Transmitter Failure in 5 Seconds";
-"noSensorCodeSelectedMessage" = "Starting a Dexcom G6 sensor with 0000 means no sensor code will be sent to the transmitter.\n\nThe Dexcom transmitter will require calibrations for this sensor session: two calibrations after warm-up, another 12 hours later, another 12 hours after that, then once every 24 hours until the sensor ends.\n\nThese calibration requests come from the Dexcom transmitter/no-code workflow. They are not caused by the %@ calibration reminder setting, and disabling that reminder will not stop required transmitter calibrations.";
+"noSensorCodeSelectedMessage" = "If a sensor session is already running on the transmitter, the app will use that session with its existing calibration requirements.\n\nStarting a new session without a code requires calibrations after warm-up and periodically afterward. Turning off the app's calibration reminder does not remove these requirements.";
 "connectingToCGM" = "Connecting to CGM...";
 "reconnectingToCGM" = "Reconnecting to CGM...";
 
 /* Dexcom G6 sensor-label scanning */
 "scanWithCamera" = "Scan with Camera";
+"manuallyEnterSensorCode" = "Manually Enter Code";
+"dexcomG6ManualSensorCodeMessage" = "Enter the four-digit calibration code from the sensor label.";
 "chooseSensorLabelPhoto" = "Choose Photo";
 "readingSensorLabel" = "Reading sensor label...";
 "scanSensorLabel" = "Scan Sensor Label";
@@ -211,7 +210,7 @@
 "sensorInformationTitle" = "Sensor Information";
 "sensorLotNumber" = "Lot Number";
 "sensorSerialNumberMetadata" = "Sensor Serial Number";
-"sensorLabelReviewFooter" = "Check the decoded information before starting the sensor.";
+"sensorLabelReviewFooter" = "Check your selection and any label information, then tap Continue.";
 "sensorLabelScanFailed" = "Sensor Label Not Read";
 "multipleSensorLabelsFound" = "The photo contains more than one sensor label. Choose a photo containing one label.";
 "noSensorLabelFound" = "No valid Dexcom G6 sensor label was found in the photo.";
@@ -221,10 +220,50 @@
 "scannedSensorLabelCode" = "Scanned Label Code";
 "noCodeSensorSessionValue" = "0000 (No-code session)";
 "sensorCodeUnknown" = "Unknown";
-"sensorSessionOrigin" = "Session Origin";
-"sensorSessionOriginUnknown" = "Unknown";
-"sensorSessionOriginAwaitingTransmitter" = "Awaiting transmitter";
-"sensorSessionOriginStartedByApp" = "Started by xDrip4iOS";
-"sensorSessionOriginExistingAdopted" = "Existing session adopted";
-"sensorSessionOriginTransmitterDetected" = "Detected from transmitter";
-"sensorSessionOriginRejected" = "Start request rejected";
+
+"sensorManagementCalibrationInProgress" = "Calibration In Progress...";
+"sensorManagementCalibrationQueued" = "Queued";
+"sensorManagementCalibrationSent" = "Sent, awaiting response";
+"sensorManagementCalibrationSentShort" = "Sent";
+"sensorManagementCalibrationCompletedShort" = "Completed";
+"sensorManagementCalibrationRejectedShort" = "Rejected";
+"sensorManagementCalibrationErrorShort" = "Error";
+"sensorManagementCalibrationProcessing" = "Processing";
+"sensorManagementCalibrationCompletedHigh" = "Completed, high confidence";
+"sensorManagementCalibrationCompletedLow" = "Completed, low confidence";
+"sensorManagementCalibrationRejectedFormat" = "Rejected: %@";
+"sensorManagementCalibrationNotPermitted" = "Calibration not permitted";
+"sensorManagementCalibrationNotPermittedNote" = "The transmitter does not currently permit calibration.";
+"sensorManagementCalibrationRejectedRange" = "Value outside range";
+"sensorManagementCalibrationRejectedTime" = "Invalid calibration time";
+"sensorManagementCalibrationRejectedDuplicate" = "Already entered";
+"sensorManagementCalibrationRejectedBounds" = "Bounds check failed";
+"sensorManagementCalibrationRejectedUnknown" = "Unknown reason";
+"sensorManufactureDate" = "Manufacture Date";
+"sensorExpirationDate" = "Expiry Date";
+"sensorManagementWaitingForSensorStart" = "Waiting for Sensor Start";
+"sensorManagementStatusWarmingUp" = "Warming Up";
+"sensorCodeContinue" = "Continue";
+"useWithoutSensorCode" = "Use Without Code";
+"noSensorCode" = "No code (0000)";
+"dexcomG7SelectSensorCodeMessage" = "Scan the current applicator or choose a photo to read the four-digit pairing code. Check the selected code, then tap Continue.";
+"noSensorCodeSelectedTitle" = "Continue Without a Sensor Code?";
+"manualSensorCodeEntryFooter" = "If you can’t scan the label or use a photo, enter the four-digit code manually.";
+"useWithoutSensorCodeFooter" = "If you don't have the code, or want to use a sensor session already running on the transmitter, choose Use Without Code.";
+
+// Glucose adjustment safety and separate curve controls
+"postProcessingCurveAdjustment" = "Curve Adjustment";
+"postProcessingEnableGlucoseAdjustment" = "Enable Glucose Adjustment?";
+"postProcessingEnableCurveAdjustment" = "Enable Curve Adjustment?";
+"postProcessingEnableGlucoseSmoothing" = "Enable Glucose Smoothing?";
+"postProcessingGlucoseAdjustmentWarning" = "Glucose Adjustment adds or subtracts a fixed offset from your sensor readings. Only enable it after confirming a consistent difference against fingerstick readings when glucose is stable. Large or persistent differences may indicate an unreliable sensor.";
+"postProcessingCurveAdjustmentWarning" = "Curve Adjustment is an advanced feature that changes how glucose values are scaled. Only enable it if you understand how Scale and Emphasis affect your readings.";
+"postProcessingGlucoseSmoothingWarning" = "Glucose Smoothing reduces jumps, noise and fluctuations in sensor readings, but may delay or soften rapid glucose changes. Only enable it if you understand how it affects your readings. Smoothing cannot correct an inaccurate sensor.";
+"postProcessingLargeOffsetWarning" = "Large glucose offset. Confirm against a fingerstick when glucose is stable. Persistent large differences may indicate an unreliable sensor.";
+"postProcessingOffsetLimit" = "Offset exceeds the maximum of ±%@. Reduce the offset to apply this adjustment.";
+"postProcessingOffsetAccessibility" = "Glucose offset: %@";
+"postProcessingInvalidAdjustment" = "The adjustment could not be applied. Check the offset and scale values.";
+
+"postProcessingAdjustmentUnavailableNativeCalibration" = "Offset and shape adjustment are unavailable because this CGM uses native calibration.";
+
+"postProcessingWarningAgreement" = "Tap OK only if you understand and agree to enable this feature.";

@@ -43,6 +43,7 @@ import MessageUI
 
 /// Owns the Settings navigation path and the system sheets requested by settings actions.
 struct SettingsNavigationView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var router: SettingsRouter
     @StateObject private var presenter: SettingsActionPresenter
     @StateObject private var listModel: SettingsListModel
@@ -56,6 +57,7 @@ struct SettingsNavigationView: View {
         coreDataManager: CoreDataManager,
         soundPlayer: SoundPlayer,
         selectedFollowerActions: SelectedFollowerActions,
+        dexcomShareUploadActions: DexcomShareUploadActions,
         incomingBackupRequest: IncomingBackupRequest?,
         consumeIncomingBackup: @escaping (UUID) -> Void
     ) {
@@ -64,6 +66,7 @@ struct SettingsNavigationView: View {
         let sections = SettingsListFactory.makeRootSections(
             coreDataManager: coreDataManager,
             selectedFollowerActions: selectedFollowerActions,
+            dexcomShareUploadActions: dexcomShareUploadActions,
             presenter: presenter
         )
 
@@ -79,10 +82,13 @@ struct SettingsNavigationView: View {
     var body: some View {
         navigationContent
         .environment(\.settingsNavigationActions, navigationActions)
-        .sheet(isPresented: $router.showsTraceEmail) {
-            SettingsTraceMailView(isPresented: $router.showsTraceEmail) {
+        .sheet(isPresented: $router.showsTraceEmail, onDismiss: presenter.cancelTraceEmailPreparation) {
+            SettingsTraceMailView(isPresented: $router.showsTraceEmail, watchLogData: presenter.traceWatchLogData) {
                 presenter.showMessage(title: Texts_Common.warning, message: Texts_SettingsView.failedToSendEmail)
             }
+        }
+        .sheet(item: $presenter.traceShare, onDismiss: presenter.clearTraceShare) { share in
+            SettingsTraceShareView(files: share.files)
         }
         .tint(ConstantsAppColors.navigationTint)
         .colorScheme(.dark)
@@ -94,7 +100,12 @@ struct SettingsNavigationView: View {
         .onChange(of: incomingBackupRequest?.id) { _ in
             openIncomingBackupIfNeeded()
         }
+        .onDisappear { presenter.cancelTraceEmailPreparation() }
+        .onChange(of: scenePhase) { phase in
+            if phase == .background { presenter.cancelTraceEmailPreparation() }
+        }
         .onChange(of: router.path) { path in
+            presenter.traceReportNavigationChanged()
             if path.isEmpty {
                 listModel.reload(.all)
             }
@@ -156,7 +167,6 @@ struct SettingsNavigationView: View {
             AlertTypeEditorView(
                 alertType: alertType,
                 coreDataManager: coreDataManager,
-                soundPlayer: soundPlayer,
                 close: {
                     router.closeCurrentView()
                     listViewModel.reload()
@@ -280,15 +290,17 @@ private struct SettingsIPadSidebarView: View {
 }
 
 /// Creates a fresh list model for one grouped child Settings screen.
-private struct SettingsScreenDestinationView: View {
+struct SettingsScreenDestinationView: View {
     @StateObject private var listModel: SettingsListModel
     @ObservedObject private var presenter: SettingsActionPresenter
+    private let introduction: (() -> String)?
     private let title: String
     private let onlineHelpTopic: OnlineHelpTopic?
     private let toolbarActions: @MainActor () -> [SettingsToolbarAction]
 
     init(settingsScreen: SettingsScreen, presenter: SettingsActionPresenter) {
         self.presenter = presenter
+        self.introduction = settingsScreen.introduction
         self.title = settingsScreen.title
         self.onlineHelpTopic = settingsScreen.onlineHelpTopic
         self.toolbarActions = settingsScreen.toolbarActions
@@ -303,7 +315,8 @@ private struct SettingsScreenDestinationView: View {
             presenter: presenter,
             title: title,
             titleDisplayMode: .large,
-            showsSectionHeaders: true
+            showsSectionHeaders: true,
+            introduction: introduction
         )
         .onAppear {
             listModel.reload(.all)
@@ -371,9 +384,21 @@ private struct NativeAlertsSettingsView: View {
 
 // MARK: - System Presentation
 
-/// SwiftUI adapter for the system mail composer used to send trace files.
+/// Presents the report files in the system share sheet.
+private struct SettingsTraceShareView: UIViewControllerRepresentable {
+    let files: [URL]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: files, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
+}
+
+/// Presents the mail composer with the report files attached.
 private struct SettingsTraceMailView: UIViewControllerRepresentable {
     @Binding var isPresented: Bool
+    let watchLogData: Data?
     let onFailure: () -> Void
 
     func makeCoordinator() -> Coordinator {
@@ -386,22 +411,8 @@ private struct SettingsTraceMailView: UIViewControllerRepresentable {
         mailViewController.setToRecipients([ConstantsTrace.traceFileDestinationAddress])
         mailViewController.setMessageBody(Texts_SettingsView.emailbodyText, isHTML: true)
 
-        let traceFiles = Trace.getTraceFilesInData()
-        for (index, traceFile) in traceFiles.0.enumerated() {
-            mailViewController.addAttachmentData(
-                traceFile as Data,
-                mimeType: "text/txt",
-                fileName: traceFiles.1[index]
-            )
-        }
-
-        let appInfo = Trace.getAppInfoFileAsData()
-        if let appInfoData = appInfo.0 {
-            mailViewController.addAttachmentData(
-                appInfoData as Data,
-                mimeType: "text/txt",
-                fileName: appInfo.1
-            )
+        for file in SettingsIssueReportFiles.attachments(watchLogData: watchLogData) {
+            mailViewController.addAttachmentData(file.data, mimeType: "text/plain", fileName: file.name)
         }
 
         return mailViewController
@@ -531,7 +542,8 @@ enum SettingsRootSection: Int, CaseIterable, SettingsProtocol {
 
     func viewModel(
         coreDataManager: CoreDataManager?,
-        selectedFollowerActions: SelectedFollowerActions = .none
+        selectedFollowerActions: SelectedFollowerActions = .none,
+        dexcomShareUploadActions: DexcomShareUploadActions = .none
     ) -> SettingsViewModelProtocol {
         switch self {
         case .dataSource:
@@ -544,13 +556,13 @@ enum SettingsRootSection: Int, CaseIterable, SettingsProtocol {
         case .alertsAndNotifications:
             return SettingsViewGroupedSettingsViewModel.alertsAndNotifications()
         case .sharingAndServices:
-            return SettingsViewGroupedSettingsViewModel.sharingAndServices()
+            return SettingsViewGroupedSettingsViewModel.sharingAndServices(dexcomShareUploadActions: dexcomShareUploadActions, coreDataManager: coreDataManager)
         case .dataManagement:
             return SettingsViewDataManagementSettingsViewModel(coreDataManager: coreDataManager)
         case .troubleshooting:
             // Consumer troubleshooting remains visible in the root menu. Developer e-mail reports
             // are intentionally exposed only by Show Advanced in the Advanced Settings section.
-            return SettingsViewTraceSettingsViewModel(rowGroup: .troubleshooting)
+            return SettingsViewTraceSettingsViewModel()
         case .about:
             return SettingsViewInfoViewModel()
         case .advanced:
@@ -575,8 +587,10 @@ struct SettingsViewGroupedSettingsViewModel: SettingsViewModelProtocol, Settings
     private let title: String
     private let rows: [SettingsGroupedRow]
     private let leadingRows: () -> [SettingsRow]
+    private let uploadRefresh: DexcomShareUploadSettingsRefresh?
 
-    init(title: String, rows: [SettingsGroupedRow], leadingRows: @escaping () -> [SettingsRow] = { [] }) {
+    init(title: String, rows: [SettingsGroupedRow], leadingRows: @escaping () -> [SettingsRow] = { [] }, uploadRefreshState: DexcomShareUploadState? = nil, uploadDefaults: UserDefaults = .standard) {
+        uploadRefresh = uploadRefreshState.map { DexcomShareUploadSettingsRefresh(state: $0, defaults: uploadDefaults) }
         self.title = title
         self.rows = rows.filter(\.isVisible)
         self.leadingRows = leadingRows
@@ -592,13 +606,13 @@ struct SettingsViewGroupedSettingsViewModel: SettingsViewModelProtocol, Settings
                     settingsScreen: {
                         SettingsScreen(
                             title: Texts_SettingsView.sectionTitleHomeScreen,
-                            onlineHelpTopic: .glucoseDisplay,
+                            onlineHelpTopic: .homeScreen,
                             providers: {
                                 [
+                                    SettingsViewHomeScreenSettingsViewModel(rowGroup: .layout),
                                     SettingsViewHomeScreenSettingsViewModel(rowGroup: .mainChart),
-                                    SettingsViewHomeScreenSettingsViewModel(rowGroup: .miniChart),
-                                    SettingsViewHomeScreenSettingsViewModel(rowGroup: .sensorLifetime),
-                                    SettingsViewHomeScreenSettingsViewModel(rowGroup: .screenLock)
+                                    SettingsViewHomeScreenSettingsViewModel(rowGroup: .treatments),
+                                    SettingsViewHomeScreenSettingsViewModel(rowGroup: .screenLockLink)
                                 ]
                             }
                         )
@@ -610,10 +624,15 @@ struct SettingsViewGroupedSettingsViewModel: SettingsViewModelProtocol, Settings
                     settingsScreen: {
                         SettingsScreen(
                             title: Texts_SettingsView.glucoseRangesSectionTitle,
-                            onlineHelpTopic: .glucoseDisplay,
+                            onlineHelpTopic: .glucoseRanges,
                             providers: { [SettingsViewHomeScreenSettingsViewModel(rowGroup: .glucoseRanges)] }
                         )
                     }
+                ),
+                SettingsGroupedRow(
+                    id: "general.treatmentSettings",
+                    title: TherapyTexts.text("treatmentSettings"),
+                    settingsScreen: { TreatmentSettingsViewModel.screen }
                 ),
                 SettingsGroupedRow(
                     id: "glucoseDisplay.statistics",
@@ -621,7 +640,7 @@ struct SettingsViewGroupedSettingsViewModel: SettingsViewModelProtocol, Settings
                     settingsScreen: {
                         SettingsScreen(
                             title: Texts_SettingsView.sectionTitleStatistics,
-                            onlineHelpTopic: .glucoseDisplay,
+                            onlineHelpTopic: .statisticsSettings,
                             providers: { [SettingsViewStatisticsSettingsViewModel()] }
                         )
                     }
@@ -694,7 +713,7 @@ struct SettingsViewGroupedSettingsViewModel: SettingsViewModelProtocol, Settings
         )
     }
 
-    static func sharingAndServices() -> SettingsViewGroupedSettingsViewModel {
+    static func sharingAndServices(dexcomShareUploadActions: DexcomShareUploadActions = .none, uploadDefaults: UserDefaults = .standard, coreDataManager: CoreDataManager? = nil) -> SettingsViewGroupedSettingsViewModel {
         SettingsViewGroupedSettingsViewModel(
             title: Texts_SettingsView.sharingAndServicesSectionTitle,
             rows: [
@@ -726,13 +745,21 @@ struct SettingsViewGroupedSettingsViewModel: SettingsViewModelProtocol, Settings
                     id: "sharingServices.dexcomShare",
                     title: Texts_SettingsView.sectionTitleDexcomShareUpload,
                     detail: {
-                        groupedStatusDetail(isEnabled: UserDefaults.standard.uploadReadingstoDexcomShare)
+                        guard uploadDefaults.uploadReadingstoDexcomShare else { return nil }
+                        return Texts_Common.enabled
+                    },
+                    detailIndicator: {
+                        DexcomShareUploadPresentation.resolve(defaults: uploadDefaults, state: dexcomShareUploadActions.state).indicator
                     },
                     settingsScreen: {
                         SettingsScreen(
                             title: Texts_SettingsView.sectionTitleDexcomShareUpload,
                             onlineHelpTopic: .dexcomShareService,
-                            providers: { [SettingsViewDexcomShareUploadSettingsViewModel()] }
+                            providers: {
+                                DexcomShareUploadRowGroup.allCases.map {
+                                    SettingsViewDexcomShareUploadSettingsViewModel(rowGroup: $0, actions: dexcomShareUploadActions, defaults: uploadDefaults)
+                                }
+                            }
                         )
                     }
                 ),
@@ -820,13 +847,20 @@ struct SettingsViewGroupedSettingsViewModel: SettingsViewModelProtocol, Settings
                     id: "sharingServices.speakReadings",
                     title: Texts_SettingsView.sectionTitleSpeak,
                     detail: {
-                        groupedStatusDetail(isEnabled: UserDefaults.standard.speakReadings)
+                        UserDefaults.standard.speakReadings ? Texts_Common.enabled : Texts_Common.disabled
+                    },
+                    detailIndicator: {
+                        SettingsIndicator(color: SettingsViewSpeakSettingsViewModel.speechStatus(isParent: true).color)
                     },
                     settingsScreen: {
                         SettingsScreen(
                             title: Texts_SettingsView.sectionTitleSpeak,
                             onlineHelpTopic: .speakGlucose,
-                            providers: { [SettingsViewSpeakSettingsViewModel()] }
+                            makeSections: { presenter in
+                                let viewModel = SettingsViewSpeakSettingsViewModel(coreDataManager: coreDataManager)
+                                return SettingsListFactory.makeSections(providers: [viewModel], presenter: presenter)
+                                    + [SettingsSectionModel(id: 1) { SettingsViewSpeakSettingsViewModel.scheduleSection() }]
+                            }
                         )
                     }
                 ),
@@ -839,7 +873,8 @@ struct SettingsViewGroupedSettingsViewModel: SettingsViewModelProtocol, Settings
                         }
                     }
                 )
-            ]
+            ],
+            uploadRefreshState: dexcomShareUploadActions.state, uploadDefaults: uploadDefaults
         )
     }
 
@@ -868,7 +903,9 @@ struct SettingsViewGroupedSettingsViewModel: SettingsViewModelProtocol, Settings
     private static func calendarShareStatusDetail() -> String? {
         guard calendarShareRowIsEnabled() else { return Texts_Common.disabled }
         guard UserDefaults.standard.createCalendarEvent else { return nil }
-        return calendarShareStatus().description
+        // Match the other parent rows for normal operation, while retaining useful problem states.
+        let status = calendarShareStatus()
+        return status == .active ? Texts_Common.enabled : status.description
     }
 
     /// Adds the same status dot used by the Calendar Share child status row.
@@ -952,6 +989,10 @@ struct SettingsViewGroupedSettingsViewModel: SettingsViewModelProtocol, Settings
     func storeMessageHandler(messageHandler: @escaping ((String, String) -> Void)) {}
 
 
+    func storeSectionReloadClosure(sectionReloadClosure: @escaping () -> Void) {
+        uploadRefresh?.reload = sectionReloadClosure
+    }
+
     func storeRowReloadClosure(rowReloadClosure: @escaping ((Int) -> Void)) {}
 }
 
@@ -961,15 +1002,32 @@ enum SettingsListFactory {
     static func makeRootSections(
         coreDataManager: CoreDataManager?,
         selectedFollowerActions: SelectedFollowerActions,
+        dexcomShareUploadActions: DexcomShareUploadActions = .none,
         presenter: SettingsActionPresenter
     ) -> [SettingsSectionModel] {
         SettingsRootSection.allCases.flatMap { section -> [SettingsSectionModel] in
             let viewModel = section.viewModel(
                 coreDataManager: coreDataManager,
-                selectedFollowerActions: selectedFollowerActions
+                selectedFollowerActions: selectedFollowerActions,
+                dexcomShareUploadActions: dexcomShareUploadActions
             )
 
             configure(viewModel: viewModel, presenter: presenter)
+
+            if section == .advanced, let advanced = viewModel as? SettingsViewDevelopmentSettingsViewModel {
+                let groups: [SettingsViewDevelopmentSettingsRowGroup] = [.advanced, .issueReporting, .advancedOptions]
+                return groups.enumerated().map { offset, group in
+                    let provider = offset == 0 ? advanced
+                        : SettingsViewDevelopmentSettingsViewModel(rowGroup: group)
+                    configure(viewModel: provider, presenter: presenter)
+                    let id = section.rawValue * 10 + offset
+                    return SettingsSectionModel(id: id) {
+                        SettingsSection(title: offset == 0 ? provider.sectionTitle() : nil,
+                                        iconSymbolName: offset == 0 ? section.iconSymbolName : nil,
+                                        rows: provider.settingsRows(sectionID: id))
+                    }
+                }
+            }
 
             if let dataSourceViewModel = viewModel as? SettingsViewDataSourceSettingsViewModel {
                 let sectionIDBase = section.rawValue * 10
@@ -1065,7 +1123,6 @@ enum SettingsListFactory {
 
 enum M5StackSettingsSection: Int, CaseIterable, SettingsProtocol {
     case general
-    case wifi
     case bluetooth
 
     /// Creates the M5Stack Settings view model for the selected subsection.
@@ -1074,8 +1131,6 @@ enum M5StackSettingsSection: Int, CaseIterable, SettingsProtocol {
         switch self {
         case .general:
             return SettingsViewM5StackGeneralSettingsViewModel()
-        case .wifi:
-            return SettingsViewM5StackWiFiSettingsViewModel()
         case .bluetooth:
             return SettingsViewM5StackBluetoothSettingsViewModel()
         }

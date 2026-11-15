@@ -36,7 +36,7 @@
 "success" = "Başarı";
 "failed" = "Başarısız oldu";
 "dexcomBatteryTooLow" = "Verici pili çok düşük!";
-"enterSensorCode" = "Sensör kodunu bilmiyorsanız 0000 kullanmak için bunu boş bırakın. Kod girmeden OK düğmesine basarsanız sensör kodu olarak 0000 kullanılır veya zaten başlamışsa mevcut oturum yakalanır.";
+"enterSensorCode" = "Sensör kodunu okumak için sensör etiketini tarayın veya bir fotoğraf seçin.";
 "stopSensorConfirmation" = "Sensörü durdurmak istediğinizden emin misiniz?";
 
 /////////////////////////////////////////////////////////////////////////////////////////////
@@ -126,6 +126,8 @@
 
 /* Dexcom G6 sensor-label scanning */
 "scanWithCamera" = "Kamerayla Tara";
+"manuallyEnterSensorCode" = "Kodu Elle Girin";
+"dexcomG6ManualSensorCodeMessage" = "Sensör etiketindeki dört haneli kalibrasyon kodunu girin.";
 "chooseSensorLabelPhoto" = "Fotoğraf Seç";
 "readingSensorLabel" = "Sensör etiketi okunuyor...";
 "scanSensorLabel" = "Sensör Etiketini Tara";
@@ -139,7 +141,7 @@
 "sensorInformationTitle" = "Sensör Bilgileri";
 "sensorLotNumber" = "Lot Numarası";
 "sensorSerialNumberMetadata" = "Sensör Seri Numarası";
-"sensorLabelReviewFooter" = "Sensörü başlatmadan önce çözümlenen bilgileri kontrol edin.";
+"sensorLabelReviewFooter" = "Seçiminizi ve varsa etiket bilgilerini kontrol edin, ardından Devam düğmesine dokunun.";
 "sensorLabelScanFailed" = "Sensör Etiketi Okunamadı";
 "multipleSensorLabelsFound" = "Fotoğrafta birden fazla sensör etiketi var. Tek etiket içeren bir fotoğraf seçin.";
 "noSensorLabelFound" = "Fotoğrafta geçerli bir Dexcom G6 sensör etiketi bulunamadı.";
@@ -149,10 +151,54 @@
 "scannedSensorLabelCode" = "Taranan Etiket Kodu";
 "noCodeSensorSessionValue" = "0000 (Kodsuz oturum)";
 "sensorCodeUnknown" = "Bilinmiyor";
-"sensorSessionOrigin" = "Oturum Kaynağı";
-"sensorSessionOriginUnknown" = "Bilinmiyor";
-"sensorSessionOriginAwaitingTransmitter" = "Verici bekleniyor";
-"sensorSessionOriginStartedByApp" = "xDrip4iOS tarafından başlatıldı";
-"sensorSessionOriginExistingAdopted" = "Mevcut oturum devralındı";
-"sensorSessionOriginTransmitterDetected" = "Vericiden algılandı";
-"sensorSessionOriginRejected" = "Başlatma isteği reddedildi";
+
+"sensorManagementCalibrationInProgress" = "Kalibrasyon devam ediyor...";
+"sensorManagementCalibrationQueued" = "Sırada";
+"sensorManagementCalibrationSent" = "Gönderildi, yanıt bekleniyor";
+"sensorManagementCalibrationSentShort" = "Gönderildi";
+"sensorManagementCalibrationCompletedShort" = "Tamamlandı";
+"sensorManagementCalibrationRejectedShort" = "Reddedildi";
+"sensorManagementCalibrationErrorShort" = "Hata";
+"sensorManagementCalibrationProcessing" = "İşleniyor";
+"sensorManagementCalibrationCompletedHigh" = "Tamamlandı, yüksek güven";
+"sensorManagementCalibrationCompletedLow" = "Tamamlandı, düşük güven";
+"sensorManagementCalibrationRejectedFormat" = "Reddedildi: %@";
+"sensorManagementCalibrationNotPermitted" = "Kalibrasyona izin verilmiyor";
+"sensorManagementCalibrationNotPermittedNote" = "Verici şu anda kalibrasyona izin vermiyor.";
+"sensorManagementCalibrationRejectedRange" = "Değer aralık dışında";
+"sensorManagementCalibrationRejectedTime" = "Geçersiz kalibrasyon zamanı";
+"sensorManagementCalibrationRejectedDuplicate" = "Zaten girildi";
+"sensorManagementCalibrationRejectedBounds" = "Sınır kontrolü başarısız";
+"sensorManagementCalibrationRejectedUnknown" = "Bilinmeyen neden";
+"sensorManufactureDate" = "Üretim Tarihi";
+"sensorExpirationDate" = "Son Kullanma Tarihi";
+"sensorManagementWaitingForSensorStart" = "Sensörün başlaması bekleniyor";
+"sensorManagementStatusWarmingUp" = "Isınıyor";
+"sensorCodeContinue" = "Devam";
+"useWithoutSensorCode" = "Kodsuz Kullan";
+"noSensorCode" = "Kod Yok (0000)";
+"dexcomG7SelectSensorCodeMessage" = "Dört haneli eşleştirme kodunu okumak için mevcut aplikatörü tarayın veya bir fotoğraf seçin. Seçilen kodu kontrol edin, ardından Devam düğmesine dokunun.";
+"noSensorCodeSelectedTitle" = "Sensör kodu olmadan devam edilsin mi?";
+"noSensorCodeSelectedMessage" = "Vericide zaten bir sensör oturumu çalışıyorsa uygulama bu oturumu mevcut kalibrasyon gereksinimleriyle kullanır.\n\nKodsuz yeni bir oturum başlatmak, ısınmadan sonra ve ardından düzenli aralıklarla kalibrasyon gerektirir. Uygulamanın kalibrasyon hatırlatıcısını kapatmak bu gereksinimleri ortadan kaldırmaz.";
+"showHideGlucoseChartTitle" = "Grafik";
+"manualSensorCodeEntryFooter" = "Etiketi tarayamıyor veya fotoğraf kullanamıyorsanız dört haneli kodu elle girin.";
+"useWithoutSensorCodeFooter" = "Kodunuz yoksa veya vericide zaten çalışan bir sensör oturumunu kullanmak istiyorsanız Kodsuz Kullan seçeneğini seçin.";
+
+// Glucose adjustment safety and separate curve controls
+"postProcessingAdjustment" = "Glikoz Ayarı";
+"postProcessingSmoothing" = "Glikoz Yumuşatma";
+"postProcessingCurveAdjustment" = "Eğri Ayarı";
+"postProcessingEnableGlucoseAdjustment" = "Glikoz Ayarı etkinleştirilsin mi?";
+"postProcessingEnableCurveAdjustment" = "Eğri Ayarı etkinleştirilsin mi?";
+"postProcessingEnableGlucoseSmoothing" = "Glikoz Yumuşatma etkinleştirilsin mi?";
+"postProcessingGlucoseAdjustmentWarning" = "Glikoz Ayarı, sensör okumalarına sabit bir ofset ekler veya çıkarır. Yalnızca glikoz sabitken parmak ucu ölçümleriyle tutarlı bir fark olduğunu doğruladıktan sonra etkinleştirin. Büyük veya kalıcı farklar güvenilmez bir sensöre işaret edebilir.";
+"postProcessingCurveAdjustmentWarning" = "Eğri Ayarı, glikoz değerlerinin ölçeklenmesini değiştiren gelişmiş bir özelliktir. Yalnızca Ölçek ve Vurgu ayarlarının okumalarınızı nasıl etkilediğini anlıyorsanız etkinleştirin.";
+"postProcessingGlucoseSmoothingWarning" = "Glikoz Yumuşatma, sensör okumalarındaki sıçramaları, gürültüyü ve dalgalanmaları azaltır ancak hızlı glikoz değişimlerini geciktirebilir veya hafifletebilir. Yalnızca okumalarınızı nasıl etkilediğini anlıyorsanız etkinleştirin. Yumuşatma, hatalı ölçen bir sensörü düzeltemez.";
+"postProcessingLargeOffsetWarning" = "Büyük glikoz ofseti. Glikoz sabitken parmak ucu ölçümüyle doğrulayın. Kalıcı büyük farklar güvenilmez bir sensöre işaret edebilir.";
+"postProcessingOffsetLimit" = "Ofset, ±%@ üst sınırını aşıyor. Bu ayarı uygulamak için ofseti azaltın.";
+"postProcessingOffsetAccessibility" = "Glikoz ofseti: %@";
+"postProcessingInvalidAdjustment" = "Ayar uygulanamadı. Ofset ve ölçek değerlerini kontrol edin.";
+
+"postProcessingAdjustmentUnavailableNativeCalibration" = "Bu CGM kendi kalibrasyonunu kullandığından ofset ve şekil ayarı kullanılamaz.";
+
+"postProcessingWarningAgreement" = "Yalnızca bu özelliği anlıyor ve etkinleştirmeyi kabul ediyorsanız Tamam’a dokunun.";

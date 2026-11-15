@@ -253,17 +253,50 @@ struct RootHomeDataSourceView: View {
                         .foregroundStyle(state.keepAliveColor)
                 }
 
+                if let mode = state.dexcomConnectionMode {
+                    Image(systemName: mode.systemImage)
+                        .foregroundStyle(mode.color)
+                        .font(.system(size: 14))
+                        .accessibilityLabel(dexcomModeAccessibilityLabel(mode))
+                }
+
                 Text(state.title)
                     .font(.system(size: 14, weight: .bold))
                     .foregroundStyle(ConstantsAppColors.dataSourceText)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
+
+                if state.showsWatchCollectorIcon {
+                    Image(systemName: ConstantsDirectWatch.watchSymbol(for: state.watchCollectorHealth))
+                        .font(.system(size: 14))
+                        .foregroundStyle(ConstantsDirectWatch.statusColor(for: state.watchCollectorHealth))
+                        .fixedSize()
+                        .accessibilityLabel(state.watchCollectorHealth.title)
+                }
             }
             .layoutPriority(1)
 
             Spacer(minLength: 8)
 
             HStack(spacing: 4) {
+                if let offset = state.adjustmentOffsetText {
+                    HStack(spacing: 1) {
+                        Text("(")
+                        Image(systemName: state.adjustmentSystemImage)
+                            .font(.system(size: 12))
+                        Text(offset)
+                        Text(")")
+                    }
+                    .font(.system(size: 14))
+                    .foregroundStyle(state.adjustmentOffsetColor)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(state.adjustmentOffsetAccessibilityLabel)
+                    .padding(.trailing, 3)
+                }
+
                 Text(dataSourceDetailText)
                     .font(.system(size: 14))
                     .foregroundStyle(dataSourceDetailColor)
@@ -305,5 +338,11 @@ struct RootHomeDataSourceView: View {
 
     private var dataSourceDetailColor: Color {
         sensorState.currentAge.isEmpty ? state.detailColor : sensorState.currentAgeColor
+    }
+
+    private func dexcomModeAccessibilityLabel(_ mode: DexcomConnectionMode) -> String {
+        mode == .coexistence
+            ? Texts_BluetoothPeripheralView.runningInCoexistenceMode
+            : Texts_BluetoothPeripheralView.runningInPrimaryMode
     }
 }

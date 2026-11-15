@@ -44,7 +44,7 @@
 "stopSensorConfirmation" = "Are you sure you want to stop the sensor?";
 
 /// When user needs to enter sensor code, to start firefly sensor
-"enterSensorCode" = "If you don't know the sensor code, leave this empty to use 0000. Pressing OK without a code will use 0000 as the sensor code, or will just capture the current session if one is already started.";
+"enterSensorCode" = "Scannez l’étiquette du capteur ou choisissez une photo pour lire le code du capteur.";
 
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////   Translation needed - remove this header after translation                       /////
@@ -125,7 +125,6 @@
 "sensorManagementStarted" = "Started";
 "sensorManagementEnds" = "Ends";
 "sensorManagementCalibrationValue" = "Valeur de calibration";
-"sensorManagementCalibrationPending" = "En attente...";
 "sensorManagementCalibrationStableTrend" = "Tendance stable";
 "sensorManagementCalibrationSlightlyLow" = "Légèrement bas";
 "sensorManagementCalibrationSlightlyHigh" = "Légèrement haut";
@@ -163,6 +162,8 @@
 
 /* Dexcom G6 sensor-label scanning */
 "scanWithCamera" = "Scanner avec l’appareil photo";
+"manuallyEnterSensorCode" = "Saisir le code manuellement";
+"dexcomG6ManualSensorCodeMessage" = "Saisissez le code d’étalonnage à quatre chiffres figurant sur l’étiquette du capteur.";
 "chooseSensorLabelPhoto" = "Choisir une photo";
 "readingSensorLabel" = "Lecture de l’étiquette du capteur...";
 "scanSensorLabel" = "Scanner l’étiquette du capteur";
@@ -176,7 +177,7 @@
 "sensorInformationTitle" = "Informations du capteur";
 "sensorLotNumber" = "Numéro de lot";
 "sensorSerialNumberMetadata" = "Numéro de série du capteur";
-"sensorLabelReviewFooter" = "Vérifiez les informations décodées avant de démarrer le capteur.";
+"sensorLabelReviewFooter" = "Vérifiez votre sélection et les éventuelles informations de l’étiquette, puis touchez Continuer.";
 "sensorLabelScanFailed" = "Étiquette du capteur non lue";
 "multipleSensorLabelsFound" = "La photo contient plusieurs étiquettes de capteur. Choisissez une photo avec une seule étiquette.";
 "noSensorLabelFound" = "Aucune étiquette de capteur Dexcom G6 valide n’a été trouvée sur la photo.";
@@ -186,10 +187,54 @@
 "scannedSensorLabelCode" = "Code de l’étiquette scannée";
 "noCodeSensorSessionValue" = "0000 (Session sans code)";
 "sensorCodeUnknown" = "Inconnu";
-"sensorSessionOrigin" = "Origine de la session";
-"sensorSessionOriginUnknown" = "Inconnue";
-"sensorSessionOriginAwaitingTransmitter" = "En attente du transmetteur";
-"sensorSessionOriginStartedByApp" = "Démarrée par xDrip4iOS";
-"sensorSessionOriginExistingAdopted" = "Session existante adoptée";
-"sensorSessionOriginTransmitterDetected" = "Détectée par le transmetteur";
-"sensorSessionOriginRejected" = "Demande de démarrage rejetée";
+
+"sensorManagementCalibrationInProgress" = "Calibration en cours...";
+"sensorManagementCalibrationQueued" = "En attente";
+"sensorManagementCalibrationSent" = "Envoyée, réponse en attente";
+"sensorManagementCalibrationSentShort" = "Envoyée";
+"sensorManagementCalibrationCompletedShort" = "Terminée";
+"sensorManagementCalibrationRejectedShort" = "Rejetée";
+"sensorManagementCalibrationErrorShort" = "Erreur";
+"sensorManagementCalibrationProcessing" = "Traitement en cours";
+"sensorManagementCalibrationCompletedHigh" = "Terminée, confiance élevée";
+"sensorManagementCalibrationCompletedLow" = "Terminée, confiance faible";
+"sensorManagementCalibrationRejectedFormat" = "Rejetée : %@";
+"sensorManagementCalibrationNotPermitted" = "Calibration non autorisée";
+"sensorManagementCalibrationNotPermittedNote" = "Le transmetteur n’autorise pas actuellement la calibration.";
+"sensorManagementCalibrationRejectedRange" = "Valeur hors limites";
+"sensorManagementCalibrationRejectedTime" = "Heure de calibration non valide";
+"sensorManagementCalibrationRejectedDuplicate" = "Déjà saisie";
+"sensorManagementCalibrationRejectedBounds" = "Échec du contrôle des limites";
+"sensorManagementCalibrationRejectedUnknown" = "Raison inconnue";
+"sensorManufactureDate" = "Date de fabrication";
+"sensorExpirationDate" = "Date d’expiration";
+"sensorManagementWaitingForSensorStart" = "En attente du démarrage du capteur";
+"sensorManagementStatusWarmingUp" = "Préchauffage";
+"sensorCodeContinue" = "Continuer";
+"useWithoutSensorCode" = "Utiliser sans code";
+"noSensorCode" = "Sans code (0000)";
+"dexcomG7SelectSensorCodeMessage" = "Scannez l’applicateur actuel ou choisissez une photo pour lire le code d’appairage à quatre chiffres. Vérifiez le code sélectionné, puis touchez Continuer.";
+"noSensorCodeSelectedTitle" = "Continuer sans code de capteur ?";
+"noSensorCodeSelectedMessage" = "Si une session de capteur est déjà active sur le transmetteur, l’app l’utilisera avec ses exigences de calibration existantes.\n\nLe démarrage d’une nouvelle session sans code nécessite des calibrations après le préchauffage, puis régulièrement. Désactiver le rappel de calibration de l’app ne supprime pas ces exigences.";
+"showHideGlucoseChartTitle" = "Graphique";
+"manualSensorCodeEntryFooter" = "Si vous ne pouvez pas scanner l’étiquette ni utiliser une photo, saisissez le code à quatre chiffres manuellement.";
+"useWithoutSensorCodeFooter" = "Si vous ne connaissez pas le code ou souhaitez utiliser une session de capteur déjà active sur le transmetteur, choisissez Utiliser sans code.";
+
+// Glucose adjustment safety and separate curve controls
+"postProcessingAdjustment" = "Ajustement du glucose";
+"postProcessingSmoothing" = "Lissage du glucose";
+"postProcessingCurveAdjustment" = "Ajustement de la courbe";
+"postProcessingEnableGlucoseAdjustment" = "Activer l’ajustement du glucose ?";
+"postProcessingEnableCurveAdjustment" = "Activer l’ajustement de la courbe ?";
+"postProcessingEnableGlucoseSmoothing" = "Activer le lissage du glucose ?";
+"postProcessingGlucoseAdjustmentWarning" = "L’ajustement du glucose ajoute ou soustrait un décalage fixe aux mesures du capteur. Activez-le uniquement après avoir confirmé un écart constant avec des mesures capillaires lorsque le glucose est stable. Des écarts importants ou persistants peuvent indiquer un capteur peu fiable.";
+"postProcessingCurveAdjustmentWarning" = "L’ajustement de la courbe est une fonction avancée qui modifie l’échelle des valeurs de glucose. Activez-le uniquement si vous comprenez l’effet de l’échelle et de l’accentuation sur vos mesures.";
+"postProcessingGlucoseSmoothingWarning" = "Le lissage du glucose réduit les sauts, le bruit et les fluctuations des mesures du capteur, mais peut retarder ou atténuer les variations rapides du glucose. Activez-le uniquement si vous comprenez son effet sur vos mesures. Le lissage ne peut pas corriger un capteur imprécis.";
+"postProcessingLargeOffsetWarning" = "Décalage de glucose important. Vérifiez avec une mesure capillaire lorsque le glucose est stable. Des écarts importants et persistants peuvent indiquer un capteur peu fiable.";
+"postProcessingOffsetLimit" = "Le décalage dépasse le maximum de ±%@. Réduisez-le pour appliquer cet ajustement.";
+"postProcessingOffsetAccessibility" = "Décalage de glucose : %@";
+"postProcessingInvalidAdjustment" = "L’ajustement n’a pas pu être appliqué. Vérifiez le décalage et l’échelle.";
+
+"postProcessingAdjustmentUnavailableNativeCalibration" = "Le réglage du décalage et de la forme est indisponible, car ce CGM utilise son propre calibrage.";
+
+"postProcessingWarningAgreement" = "Touchez OK uniquement si vous comprenez cette fonctionnalité et acceptez de l’activer.";

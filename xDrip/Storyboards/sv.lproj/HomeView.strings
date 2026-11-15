@@ -44,7 +44,7 @@
 "stopSensorConfirmation" = "Are you sure you want to stop the sensor?";
 
 /// When user needs to enter sensor code, to start firefly sensor
-"enterSensorCode" = "If you don't know the sensor code, leave this empty to use 0000. Pressing OK without a code will use 0000 as the sensor code, or will just capture the current session if one is already started.";
+"enterSensorCode" = "Skanna sensorns etikett eller välj ett foto för att läsa sensorkoden.";
 
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////   Translation needed - remove this header after translation                       /////
@@ -139,6 +139,8 @@
 
 /* Dexcom G6 sensor-label scanning */
 "scanWithCamera" = "Skanna med kamera";
+"manuallyEnterSensorCode" = "Ange koden manuellt";
+"dexcomG6ManualSensorCodeMessage" = "Ange den fyrsiffriga kalibreringskoden från sensoretiketten.";
 "chooseSensorLabelPhoto" = "Välj foto";
 "readingSensorLabel" = "Läser sensoretikett...";
 "scanSensorLabel" = "Skanna sensoretikett";
@@ -152,7 +154,7 @@
 "sensorInformationTitle" = "Sensorinformation";
 "sensorLotNumber" = "Lotnummer";
 "sensorSerialNumberMetadata" = "Sensorns serienummer";
-"sensorLabelReviewFooter" = "Kontrollera den avkodade informationen innan sensorn startas.";
+"sensorLabelReviewFooter" = "Kontrollera ditt val och eventuell etikettinformation och tryck på Fortsätt.";
 "sensorLabelScanFailed" = "Sensoretiketten kunde inte läsas";
 "multipleSensorLabelsFound" = "Fotot innehåller fler än en sensoretikett. Välj ett foto med en etikett.";
 "noSensorLabelFound" = "Ingen giltig Dexcom G6-sensoretikett hittades i fotot.";
@@ -162,10 +164,54 @@
 "scannedSensorLabelCode" = "Skannad etikettkod";
 "noCodeSensorSessionValue" = "0000 (Session utan kod)";
 "sensorCodeUnknown" = "Okänd";
-"sensorSessionOrigin" = "Sessionens ursprung";
-"sensorSessionOriginUnknown" = "Okänt";
-"sensorSessionOriginAwaitingTransmitter" = "Väntar på sändaren";
-"sensorSessionOriginStartedByApp" = "Startad av xDrip4iOS";
-"sensorSessionOriginExistingAdopted" = "Befintlig session övertagen";
-"sensorSessionOriginTransmitterDetected" = "Identifierad från sändaren";
-"sensorSessionOriginRejected" = "Startbegäran avvisad";
+
+"sensorManagementCalibrationInProgress" = "Kalibrering pågår...";
+"sensorManagementCalibrationQueued" = "I kö";
+"sensorManagementCalibrationSent" = "Skickad, väntar på svar";
+"sensorManagementCalibrationSentShort" = "Skickad";
+"sensorManagementCalibrationCompletedShort" = "Slutförd";
+"sensorManagementCalibrationRejectedShort" = "Avvisad";
+"sensorManagementCalibrationErrorShort" = "Fel";
+"sensorManagementCalibrationProcessing" = "Bearbetar";
+"sensorManagementCalibrationCompletedHigh" = "Slutförd, hög säkerhet";
+"sensorManagementCalibrationCompletedLow" = "Slutförd, låg säkerhet";
+"sensorManagementCalibrationRejectedFormat" = "Avvisad: %@";
+"sensorManagementCalibrationNotPermitted" = "Kalibrering inte tillåten";
+"sensorManagementCalibrationNotPermittedNote" = "Sändaren tillåter för närvarande inte kalibrering.";
+"sensorManagementCalibrationRejectedRange" = "Värde utanför intervallet";
+"sensorManagementCalibrationRejectedTime" = "Ogiltig kalibreringstid";
+"sensorManagementCalibrationRejectedDuplicate" = "Redan angiven";
+"sensorManagementCalibrationRejectedBounds" = "Kontroll av gränser misslyckades";
+"sensorManagementCalibrationRejectedUnknown" = "Okänd orsak";
+"sensorManufactureDate" = "Tillverkningsdatum";
+"sensorExpirationDate" = "Utgångsdatum";
+"sensorManagementWaitingForSensorStart" = "Väntar på sensorstart";
+"sensorManagementStatusWarmingUp" = "Värmer upp";
+"sensorCodeContinue" = "Fortsätt";
+"useWithoutSensorCode" = "Använd utan kod";
+"noSensorCode" = "Ingen kod (0000)";
+"dexcomG7SelectSensorCodeMessage" = "Skanna den aktuella applikatorn eller välj ett foto för att läsa den fyrsiffriga parkopplingskoden. Kontrollera den valda koden och tryck på Fortsätt.";
+"noSensorCodeSelectedTitle" = "Fortsätta utan sensorkod?";
+"noSensorCodeSelectedMessage" = "Om en sensorsession redan är aktiv på sändaren använder appen den sessionen med dess befintliga kalibreringskrav.\n\nEn ny session utan kod kräver kalibreringar efter uppvärmningen och därefter regelbundet. Kraven försvinner inte om appens kalibreringspåminnelse stängs av.";
+"showHideGlucoseChartTitle" = "Diagram";
+"manualSensorCodeEntryFooter" = "Om du inte kan skanna etiketten eller använda ett foto anger du den fyrsiffriga koden manuellt.";
+"useWithoutSensorCodeFooter" = "Om du inte har koden eller vill använda en sensorsession som redan är aktiv på sändaren väljer du Använd utan kod.";
+
+// Glucose adjustment safety and separate curve controls
+"postProcessingAdjustment" = "Glukosjustering";
+"postProcessingSmoothing" = "Glukosutjämning";
+"postProcessingCurveAdjustment" = "Kurvjustering";
+"postProcessingEnableGlucoseAdjustment" = "Aktivera glukosjustering?";
+"postProcessingEnableCurveAdjustment" = "Aktivera kurvjustering?";
+"postProcessingEnableGlucoseSmoothing" = "Aktivera glukosutjämning?";
+"postProcessingGlucoseAdjustmentWarning" = "Glukosjustering lägger till eller drar ifrån en fast förskjutning från sensorvärdena. Aktivera endast efter att du har bekräftat en konsekvent skillnad mot fingersticksmätningar när glukosen är stabil. Stora eller ihållande skillnader kan tyda på en opålitlig sensor.";
+"postProcessingCurveAdjustmentWarning" = "Kurvjustering är en avancerad funktion som ändrar skalningen av glukosvärden. Aktivera endast om du förstår hur skala och betoning påverkar dina värden.";
+"postProcessingGlucoseSmoothingWarning" = "Glukosutjämning minskar hopp, brus och variationer i sensorvärdena, men kan fördröja eller dämpa snabba glukosförändringar. Aktivera endast om du förstår hur det påverkar dina värden. Utjämning kan inte korrigera en felaktig sensor.";
+"postProcessingLargeOffsetWarning" = "Stor glukosförskjutning. Kontrollera med ett fingerstick när glukosen är stabil. Ihållande stora skillnader kan tyda på en opålitlig sensor.";
+"postProcessingOffsetLimit" = "Förskjutningen överskrider maximalt ±%@. Minska förskjutningen för att tillämpa justeringen.";
+"postProcessingOffsetAccessibility" = "Glukosförskjutning: %@";
+"postProcessingInvalidAdjustment" = "Justeringen kunde inte tillämpas. Kontrollera förskjutning och skala.";
+
+"postProcessingAdjustmentUnavailableNativeCalibration" = "Justering av offset och form är inte tillgänglig eftersom den här CGM:en använder egen kalibrering.";
+
+"postProcessingWarningAgreement" = "Tryck på OK endast om du förstår funktionen och samtycker till att aktivera den.";

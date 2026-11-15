@@ -36,7 +36,7 @@
 "success" = "Success";
 "failed" = "Failed";
 "dexcomBatteryTooLow" = "The Transmitter battery is too low!";
-"enterSensorCode" = "If you don't know the sensor code, leave this empty to use 0000. Pressing OK without a code will use 0000 as the sensor code, or will just capture the current session if one is already started.";
+"enterSensorCode" = "Scan sensorens etiket, eller vælg et foto for at læse sensorkoden.";
 "stopSensorConfirmation" = "Are you sure you want to stop the sensor?";
 
 /////////////////////////////////////////////////////////////////////////////////////////////
@@ -126,6 +126,8 @@
 
 /* Dexcom G6 sensor-label scanning */
 "scanWithCamera" = "Scan med kamera";
+"manuallyEnterSensorCode" = "Indtast kode manuelt";
+"dexcomG6ManualSensorCodeMessage" = "Indtast den firecifrede kalibreringskode fra sensorens etiket.";
 "chooseSensorLabelPhoto" = "Vælg foto";
 "readingSensorLabel" = "Læser sensormærkat...";
 "scanSensorLabel" = "Scan sensormærkat";
@@ -139,7 +141,7 @@
 "sensorInformationTitle" = "Sensoroplysninger";
 "sensorLotNumber" = "Lotnummer";
 "sensorSerialNumberMetadata" = "Sensorens serienummer";
-"sensorLabelReviewFooter" = "Kontrollér de afkodede oplysninger, før sensoren startes.";
+"sensorLabelReviewFooter" = "Kontrollér dit valg og eventuelle etiketoplysninger, og tryk på Fortsæt.";
 "sensorLabelScanFailed" = "Sensormærkat ikke læst";
 "multipleSensorLabelsFound" = "Fotoet indeholder mere end én sensormærkat. Vælg et foto med én mærkat.";
 "noSensorLabelFound" = "Der blev ikke fundet en gyldig Dexcom G6-sensormærkat på fotoet.";
@@ -149,10 +151,54 @@
 "scannedSensorLabelCode" = "Scannet mærkatkode";
 "noCodeSensorSessionValue" = "0000 (Session uden kode)";
 "sensorCodeUnknown" = "Ukendt";
-"sensorSessionOrigin" = "Sessionsoprindelse";
-"sensorSessionOriginUnknown" = "Ukendt";
-"sensorSessionOriginAwaitingTransmitter" = "Afventer sender";
-"sensorSessionOriginStartedByApp" = "Startet af xDrip4iOS";
-"sensorSessionOriginExistingAdopted" = "Eksisterende session overtaget";
-"sensorSessionOriginTransmitterDetected" = "Registreret fra sender";
-"sensorSessionOriginRejected" = "Startanmodning afvist";
+
+"sensorManagementCalibrationInProgress" = "Kalibrering i gang...";
+"sensorManagementCalibrationQueued" = "I kø";
+"sensorManagementCalibrationSent" = "Sendt, afventer svar";
+"sensorManagementCalibrationSentShort" = "Sendt";
+"sensorManagementCalibrationCompletedShort" = "Fuldført";
+"sensorManagementCalibrationRejectedShort" = "Afvist";
+"sensorManagementCalibrationErrorShort" = "Fejl";
+"sensorManagementCalibrationProcessing" = "Behandler";
+"sensorManagementCalibrationCompletedHigh" = "Fuldført, høj sikkerhed";
+"sensorManagementCalibrationCompletedLow" = "Fuldført, lav sikkerhed";
+"sensorManagementCalibrationRejectedFormat" = "Afvist: %@";
+"sensorManagementCalibrationNotPermitted" = "Kalibrering ikke tilladt";
+"sensorManagementCalibrationNotPermittedNote" = "Senderen tillader ikke kalibrering i øjeblikket.";
+"sensorManagementCalibrationRejectedRange" = "Værdi uden for interval";
+"sensorManagementCalibrationRejectedTime" = "Ugyldigt kalibreringstidspunkt";
+"sensorManagementCalibrationRejectedDuplicate" = "Allerede indtastet";
+"sensorManagementCalibrationRejectedBounds" = "Kontrol af grænser mislykkedes";
+"sensorManagementCalibrationRejectedUnknown" = "Ukendt årsag";
+"sensorManufactureDate" = "Fremstillingsdato";
+"sensorExpirationDate" = "Udløbsdato";
+"sensorManagementWaitingForSensorStart" = "Venter på sensorstart";
+"sensorManagementStatusWarmingUp" = "Varmer op";
+"sensorCodeContinue" = "Fortsæt";
+"useWithoutSensorCode" = "Brug uden kode";
+"noSensorCode" = "Ingen kode (0000)";
+"dexcomG7SelectSensorCodeMessage" = "Scan den aktuelle applikator, eller vælg et foto for at læse den firecifrede parringskode. Kontrollér den valgte kode, og tryk på Fortsæt.";
+"noSensorCodeSelectedTitle" = "Fortsæt uden sensorkode?";
+"noSensorCodeSelectedMessage" = "Hvis en sensorsession allerede kører på senderen, bruger appen den session med dens eksisterende kalibreringskrav.\n\nEn ny session uden kode kræver kalibreringer efter opvarmning og derefter med jævne mellemrum. Disse krav forsvinder ikke, når appens kalibreringspåmindelse slås fra.";
+"showHideGlucoseChartTitle" = "Graf";
+"manualSensorCodeEntryFooter" = "Hvis du ikke kan scanne etiketten eller bruge et foto, skal du indtaste den firecifrede kode manuelt.";
+"useWithoutSensorCodeFooter" = "Hvis du ikke har koden eller vil bruge en sensorsession, der allerede kører på senderen, skal du vælge Brug uden kode.";
+
+// Glucose adjustment safety and separate curve controls
+"postProcessingAdjustment" = "Glukosejustering";
+"postProcessingSmoothing" = "Glukoseudjævning";
+"postProcessingCurveAdjustment" = "Kurvejustering";
+"postProcessingEnableGlucoseAdjustment" = "Aktivér glukosejustering?";
+"postProcessingEnableCurveAdjustment" = "Aktivér kurvejustering?";
+"postProcessingEnableGlucoseSmoothing" = "Aktivér glukoseudjævning?";
+"postProcessingGlucoseAdjustmentWarning" = "Glukosejustering lægger en fast forskydning til eller trækker den fra sensorværdierne. Aktivér kun efter at have bekræftet en ensartet forskel i forhold til fingerprikmålinger, når glukosen er stabil. Store eller vedvarende forskelle kan tyde på en upålidelig sensor.";
+"postProcessingCurveAdjustmentWarning" = "Kurvejustering er en avanceret funktion, som ændrer skaleringen af glukoseværdier. Aktivér kun, hvis du forstår, hvordan skala og vægtning påvirker dine værdier.";
+"postProcessingGlucoseSmoothingWarning" = "Glukoseudjævning reducerer spring, støj og udsving i sensorværdierne, men kan forsinke eller dæmpe hurtige glukoseændringer. Aktivér kun, hvis du forstår, hvordan det påvirker dine værdier. Udjævning kan ikke korrigere en unøjagtig sensor.";
+"postProcessingLargeOffsetWarning" = "Stor glukoseforskydning. Kontrollér med et fingerprik, når glukosen er stabil. Vedvarende store forskelle kan tyde på en upålidelig sensor.";
+"postProcessingOffsetLimit" = "Forskydningen overstiger maksimum på ±%@. Reducer forskydningen for at anvende justeringen.";
+"postProcessingOffsetAccessibility" = "Glukoseforskydning: %@";
+"postProcessingInvalidAdjustment" = "Justeringen kunne ikke anvendes. Kontrollér forskydning og skala.";
+
+"postProcessingAdjustmentUnavailableNativeCalibration" = "Justering af forskydning og form er ikke tilgængelig, fordi denne CGM bruger sin egen kalibrering.";
+
+"postProcessingWarningAgreement" = "Tryk kun på OK, hvis du forstår denne funktion og accepterer at aktivere den.";

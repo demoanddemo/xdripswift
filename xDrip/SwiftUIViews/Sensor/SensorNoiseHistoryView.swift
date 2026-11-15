@@ -111,6 +111,7 @@ struct SensorNoiseHistoryView: View {
         }
         .navigationTitle(Texts_HomeView.sensorNoiseHistoryTitle)
         .navigationBarTitleDisplayMode(.inline)
+        .onlineHelp(.sensorNoise)
         .onAppear {
             viewModel.load()
             refreshSensorNoiseSensitivity()
@@ -287,7 +288,7 @@ struct SensorNoiseHistoryView: View {
                 yStart: .value("Low start", 0),
                 yEnd: .value("Low end", chartData.elevatedThreshold)
             )
-            .foregroundStyle(ConstantsAppColors.normal.opacity(0.055))
+            .foregroundStyle(ConstantsAppColors.normal.opacity(0.08))
 
             RectangleMark(
                 xStart: .value("Start", chartData.domain.lowerBound),
@@ -295,7 +296,7 @@ struct SensorNoiseHistoryView: View {
                 yStart: .value("Elevated start", chartData.elevatedThreshold),
                 yEnd: .value("Elevated end", chartData.veryHighThreshold)
             )
-            .foregroundStyle(ConstantsAppColors.warning.opacity(0.07))
+            .foregroundStyle(ConstantsAppColors.warning.opacity(0.09))
 
             RectangleMark(
                 xStart: .value("Start", chartData.domain.lowerBound),
@@ -303,7 +304,7 @@ struct SensorNoiseHistoryView: View {
                 yStart: .value("Very high start", chartData.veryHighThreshold),
                 yEnd: .value("Very high end", chartData.extremeThreshold)
             )
-            .foregroundStyle(ConstantsAppColors.caution.opacity(0.075))
+            .foregroundStyle(ConstantsAppColors.caution.opacity(0.10))
 
             RectangleMark(
                 xStart: .value("Start", chartData.domain.lowerBound),
@@ -311,7 +312,7 @@ struct SensorNoiseHistoryView: View {
                 yStart: .value("Extreme start", chartData.extremeThreshold),
                 yEnd: .value("Extreme end", chartData.yMaximum)
             )
-            .foregroundStyle(ConstantsAppColors.urgent.opacity(0.075))
+            .foregroundStyle(ConstantsAppColors.urgent.opacity(0.10))
 
             ForEach(chartData.thresholds, id: \.self) { threshold in
                 RuleMark(y: .value("Noise threshold", threshold))

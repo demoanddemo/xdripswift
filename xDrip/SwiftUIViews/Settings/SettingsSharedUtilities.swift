@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import Combine
 import UIKit
 import MessageUI
 
@@ -81,6 +82,48 @@ struct SettingsRoute: Hashable {
     }
 }
 
+struct SettingsReportAttachment {
+    let name: String
+    let data: Data
+}
+
+struct SettingsReportShare: Identifiable {
+    let id = UUID()
+    let directory: URL
+    let files: [URL]
+}
+
+/// Email and sharing use the same files, including only the requested Watch snapshot.
+enum SettingsIssueReportFiles {
+    static func attachments(watchLogData: Data?) -> [SettingsReportAttachment] {
+        let traces = Trace.getTraceFilesInData()
+        var files = zip(traces.1, traces.0).map { SettingsReportAttachment(name: $0.0, data: $0.1) }
+        let appInfo = Trace.getAppInfoFileAsData()
+        if let data = appInfo.0 { files.append(SettingsReportAttachment(name: appInfo.1, data: data)) }
+        if let watchLogData {
+            files.append(SettingsReportAttachment(name: SettingsActionPresenter.traceWatchLogFilename, data: watchLogData))
+        }
+        return files
+    }
+
+    static func createShare(_ attachments: [SettingsReportAttachment], in parent: URL = FileManager.default.temporaryDirectory) throws -> SettingsReportShare {
+        guard !attachments.isEmpty else { throw CocoaError(.fileNoSuchFile) }
+        let directory = parent.appendingPathComponent("IssueReport-" + UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        do {
+            let files = try attachments.map { attachment in
+                let url = directory.appendingPathComponent(URL(fileURLWithPath: attachment.name).lastPathComponent)
+                try attachment.data.write(to: url, options: .atomic)
+                return url
+            }
+            return SettingsReportShare(directory: directory, files: files)
+        } catch {
+            try? FileManager.default.removeItem(at: directory)
+            throw error
+        }
+    }
+}
+
 struct SettingsNavigationActions {
     let push: (_ title: String, _ content: @escaping (_ close: @escaping () -> Void) -> AnyView) -> Void
 
@@ -146,6 +189,7 @@ struct SettingsSectionModel: Identifiable {
 
 struct SettingsScreen {
     let title: String
+    let introduction: (() -> String)?
     let onlineHelpTopic: OnlineHelpTopic?
     let toolbarActions: @MainActor () -> [SettingsToolbarAction]
     let makeSections: @MainActor (SettingsActionPresenter) -> [SettingsSectionModel]
@@ -155,11 +199,13 @@ struct SettingsScreen {
     /// mix of existing section providers for the child screen.
     init(
         title: String,
+        introduction: (() -> String)? = nil,
         onlineHelpTopic: OnlineHelpTopic? = nil,
         toolbarActions: @escaping @MainActor () -> [SettingsToolbarAction] = { [] },
         makeSections: @escaping @MainActor (SettingsActionPresenter) -> [SettingsSectionModel]
     ) {
         self.title = title
+        self.introduction = introduction
         self.onlineHelpTopic = onlineHelpTopic
         self.toolbarActions = toolbarActions
         self.makeSections = makeSections
@@ -169,11 +215,12 @@ struct SettingsScreen {
     /// is just a title and a list of existing native section providers.
     init(
         title: String,
+        introduction: (() -> String)? = nil,
         onlineHelpTopic: OnlineHelpTopic? = nil,
         toolbarActions: @escaping @MainActor () -> [SettingsToolbarAction] = { [] },
         providers: @escaping () -> [SettingsNativeSectionProvider]
     ) {
-        self.init(title: title, onlineHelpTopic: onlineHelpTopic, toolbarActions: toolbarActions) { presenter in
+        self.init(title: title, introduction: introduction, onlineHelpTopic: onlineHelpTopic, toolbarActions: toolbarActions) { presenter in
             SettingsListFactory.makeSections(providers: providers(), presenter: presenter)
         }
     }
@@ -234,6 +281,20 @@ struct SettingsIndicator {
     let color: Color
     var symbolName: String = "circle.fill"
     var accessibilityLabel: String? = nil
+}
+
+/// The small status symbol shared by Settings and Bluetooth peripheral rows.
+struct SettingsIndicatorView: View {
+    let indicator: SettingsIndicator
+    var isEnabled = true
+
+    var body: some View {
+        Image(systemName: indicator.symbolName)
+            .font(.system(size: 8))
+            .foregroundStyle(isEnabled ? indicator.color : .gray)
+            .fixedSize()
+            .accessibilityLabel(indicator.accessibilityLabel ?? "")
+    }
 }
 
 /// One value shown by an inline Settings picker and whether it matches the stored selection.
@@ -308,14 +369,13 @@ enum SettingsRowAction {
     case legacy(action: () -> SettingsSelectedRowAction, rowIndex: Int, viewModel: SettingsViewModelProtocol)
     case run(() -> Void)
     case showMessage(title: String, message: String?)
-    case sendTraceEmail
     case troubleshootingLog
 
     var prefersDisclosure: Bool {
         switch self {
         case .textEntry, .selectionList, .settingsScreen, .dataManagement, .troubleshootingLog:
             return true
-        case .legacy, .run, .showMessage, .sendTraceEmail:
+        case .legacy, .run, .showMessage:
             return false
         }
     }
@@ -370,7 +430,6 @@ extension SettingsViewInfoViewModel: SettingsNativeSectionProvider {}
 extension SettingsViewDevelopmentSettingsViewModel: SettingsNativeSectionProvider {}
 extension SettingsViewHousekeeperSettingsViewModel: SettingsNativeSectionProvider {}
 extension SettingsViewM5StackGeneralSettingsViewModel: SettingsNativeSectionProvider {}
-extension SettingsViewM5StackWiFiSettingsViewModel: SettingsNativeSectionProvider {}
 extension SettingsViewM5StackBluetoothSettingsViewModel: SettingsNativeSectionProvider {}
 
 enum SettingsReloadScope {
@@ -386,10 +445,48 @@ final class SettingsActionPresenter: ObservableObject {
     @Published var selectionList: SettingsSelectionListContent?
     @Published var datePicker: SettingsDatePickerContent?
 
-    private let router: SettingsRouter
+    @Published private(set) var preparingTraceEmail = false
+    @Published private(set) var includeTraceWatchLogs = false
+    @Published var traceShare: SettingsReportShare?
+    private var traceShareDirectory: URL?
+    private(set) var traceWatchLogData: Data?
+    static let traceWatchLogFilename = "Direct-to-Watch.log"
 
-    init(router: SettingsRouter) {
+    private let router: SettingsRouter
+    private let traceNotifications: NotificationCenter
+    private let traceUptime: () -> TimeInterval
+    private let traceConfiguration: () -> DirectWatchConfiguration?
+    private let traceConnectionAvailable: () -> Bool
+    private let traceCanSendMail: () -> Bool
+    private let traceAttachments: (Data?) -> [SettingsReportAttachment]
+    private var traceReportRouteID: UUID?
+    private var traceLogConfiguration: DirectWatchConfiguration?
+    private var traceRequest: (id: String, configuration: DirectWatchConfiguration, deadline: TimeInterval, routeID: UUID?)?
+    private var traceLogObserver: AnyCancellable?
+    private var traceTimeout: DispatchWorkItem?
+
+    init(router: SettingsRouter, traceNotifications: NotificationCenter = .default,
+         traceUptime: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
+         traceConfiguration: @escaping () -> DirectWatchConfiguration? = { DirectWatchSettings.configuration },
+         traceConnectionAvailable: @escaping () -> Bool = {
+             // Pausing sensor collection does not prevent fetching Watch logs.
+             DirectWatchSettings.configuration != nil
+                 && UserDefaults.standard.string(forKey: DirectWatchSettings.unavailableReasonKey) == nil
+         },
+         traceCanSendMail: @escaping () -> Bool = { MFMailComposeViewController.canSendMail() },
+         traceAttachments: @escaping (Data?) -> [SettingsReportAttachment] = SettingsIssueReportFiles.attachments) {
         self.router = router
+        self.traceNotifications = traceNotifications
+        self.traceUptime = traceUptime
+        self.traceConfiguration = traceConfiguration
+        self.traceConnectionAvailable = traceConnectionAvailable
+        self.traceCanSendMail = traceCanSendMail
+        self.traceAttachments = traceAttachments
+    }
+
+    deinit {
+        if let directory = traceShareDirectory { try? FileManager.default.removeItem(at: directory) }
+        traceTimeout?.cancel()
     }
 
     /// Shows the simple message alert requested by a Settings view model.
@@ -510,21 +607,160 @@ final class SettingsActionPresenter: ObservableObject {
         router.show(.datePicker(datePicker))
     }
 
-    func requestTraceEmail() {
-        guard MFMailComposeViewController.canSendMail() else {
+    @MainActor func requestTraceEmail() {
+        guard !preparingTraceEmail, !router.showsTraceEmail, traceShare == nil, confirmation == nil else { return }
+        guard traceCanSendMail() else {
             showMessage(title: Texts_Common.warning, message: Texts_SettingsView.emailNotConfigured)
             return
         }
 
+        guard validateTraceWatchAttachment() else { return }
+        router.showsTraceEmail = true
+    }
+
+    var traceWatchLogsAvailable: Bool { traceConnectionAvailable() && traceConfiguration() != nil }
+
+    @MainActor func requestTraceShare() {
+        guard !preparingTraceEmail, !router.showsTraceEmail, traceShare == nil, confirmation == nil else { return }
+        guard validateTraceWatchAttachment() else { return }
+        do {
+            let share = try SettingsIssueReportFiles.createShare(traceAttachments(traceWatchLogData))
+            traceShareDirectory = share.directory
+            traceShare = share
+        } catch {
+            showMessage(title: Texts_Common.warning, message: Texts_SettingsView.reportShareFailed)
+        }
+    }
+
+    @MainActor func clearTraceShare() {
+        traceShare = nil
+        if let directory = traceShareDirectory { try? FileManager.default.removeItem(at: directory) }
+        traceShareDirectory = nil
+        cancelTraceEmailPreparation()
+    }
+
+    @MainActor private func validateTraceWatchAttachment() -> Bool {
+        guard includeTraceWatchLogs else { return true }
+        guard traceWatchLogsAvailable, let configuration = traceLogConfiguration,
+              traceBindingMatches(configuration), traceWatchLogData != nil else {
+            failTraceWatchLogRequest()
+            return false
+        }
+        return true
+    }
+
+    @MainActor func confirmTraceWatchLogs(_ include: Bool) {
+        guard include else {
+            setIncludeTraceWatchLogs(false)
+            return
+        }
+        guard !includeTraceWatchLogs, traceWatchLogsAvailable, confirmation == nil else { return }
+        let routeID = router.path.last?.id
         confirmation = SettingsConfirmationContent(
-            title: Texts_HomeView.info,
-            message: Texts_SettingsView.describeProblem,
+            title: Texts_SettingsView.openWatchApp,
+            message: Texts_SettingsView.confirmWatchAppOpen,
             action: { [weak self] in
-                self?.confirmation = nil
-                self?.router.showsTraceEmail = true
+                guard let self else { return }
+                self.confirmation = nil
+                guard self.router.path.last?.id == routeID else { return }
+                self.setIncludeTraceWatchLogs(true)
             },
-            cancel: nil
+            cancel: { [weak self] in self?.confirmation = nil },
+            actionTitle: Texts_Common.yes
         )
+    }
+
+    @MainActor func setIncludeTraceWatchLogs(_ include: Bool) {
+        guard include != includeTraceWatchLogs else { return }
+        cancelTraceEmailPreparation()
+        guard include, traceWatchLogsAvailable, let configuration = traceConfiguration() else { return }
+        includeTraceWatchLogs = true
+        traceReportRouteID = router.path.last?.id
+        traceLogConfiguration = configuration
+        let id = UUID().uuidString
+        traceRequest = (id, configuration, traceUptime() + DirectWatchLogReply.requestTimeout, traceReportRouteID)
+        preparingTraceEmail = true
+        // Listen before dispatch so an immediate failure cannot be missed.
+        traceLogObserver = traceNotifications.publisher(for: DirectWatchSettings.logsChanged)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] notification in
+                let requestID = notification.userInfo?[DirectWatchSettings.logRequestIDKey] as? String
+                let data = notification.userInfo?[DirectWatchSettings.logDataKey] as? Data
+                let failed = notification.userInfo?[DirectWatchSettings.logsFailedKey] as? Bool == true
+                MainActor.assumeIsolated {
+                    self?.receiveTraceWatchLog(requestID: requestID, data: data, failed: failed)
+                }
+            }
+        let timeout = DispatchWorkItem { [weak self] in
+            MainActor.assumeIsolated { self?.traceReportDeadlineReached(requestID: id) }
+        }
+        traceTimeout = timeout
+        DispatchQueue.main.asyncAfter(deadline: .now() + DirectWatchLogReply.requestTimeout, execute: timeout)
+        traceNotifications.post(name: DirectWatchSettings.requestLogs, object: nil,
+                                userInfo: [DirectWatchSettings.logRequestIDKey: id])
+    }
+
+    @MainActor func receiveTraceWatchLog(requestID: String?, data: Data?, failed: Bool) {
+        guard let request = traceRequest, request.id == requestID else { return }
+        guard request.routeID == router.path.last?.id else {
+            cancelTraceEmailPreparation()
+            return
+        }
+        guard traceWatchLogsAvailable, traceBindingMatches(request.configuration), traceUptime() < request.deadline else {
+            failTraceWatchLogRequest(timedOut: traceUptime() >= request.deadline)
+            return
+        }
+        if let data, !data.isEmpty, data.count <= DirectWatchLogReply.maximumBytes {
+            stopTraceWatchLogRequest()
+            // Keep the received bytes even if a later manual export replaces the shared file.
+            traceWatchLogData = data
+        } else if failed || data != nil {
+            failTraceWatchLogRequest()
+        }
+    }
+
+    @MainActor func traceReportDeadlineReached(requestID: String) {
+        guard traceRequest?.id == requestID else { return }
+        failTraceWatchLogRequest(timedOut: true)
+    }
+
+    @MainActor func traceReportConfigurationChanged() {
+        objectWillChange.send()
+        guard includeTraceWatchLogs, let configuration = traceLogConfiguration else { return }
+        if !traceWatchLogsAvailable || !traceBindingMatches(configuration) {
+            cancelTraceEmailPreparation()
+        }
+    }
+
+    private func traceBindingMatches(_ previous: DirectWatchConfiguration) -> Bool {
+        guard let current = traceConfiguration() else { return false }
+        return current.connectionIdentity == previous.connectionIdentity && current.sensorStartDate == previous.sensorStartDate
+    }
+
+    @MainActor func traceReportNavigationChanged() {
+        guard includeTraceWatchLogs, traceReportRouteID != router.path.last?.id else { return }
+        cancelTraceEmailPreparation()
+    }
+
+    @MainActor private func stopTraceWatchLogRequest() {
+        traceRequest = nil
+        traceTimeout?.cancel()
+        traceTimeout = nil
+        traceLogObserver = nil
+        preparingTraceEmail = false
+    }
+
+    @MainActor func cancelTraceEmailPreparation() {
+        stopTraceWatchLogRequest()
+        includeTraceWatchLogs = false
+        traceWatchLogData = nil
+        traceLogConfiguration = nil
+        traceReportRouteID = nil
+    }
+
+    @MainActor private func failTraceWatchLogRequest(timedOut: Bool = false) {
+        cancelTraceEmailPreparation()
+        showMessage(title: Texts_SettingsView.watchLogsNotReceived, message: timedOut ? Texts_SettingsView.watchLogsTimeout : Texts_SettingsView.watchLogsFailure)
     }
 
     func showTroubleshootingLog() {
@@ -598,6 +834,8 @@ private extension SettingsKeyboardType {
             return .default
         case .alphabet:
             return .alphabet
+        case .credential:
+            return .default
         case .numberPad:
             return .numberPad
         case .decimalPad:
@@ -605,6 +843,14 @@ private extension SettingsKeyboardType {
         case .URL:
             return .URL
         }
+    }
+
+    var disablesAutomaticTextChanges: Bool {
+        if case .credential = self {
+            return true
+        }
+
+        return false
     }
 }
 
@@ -652,6 +898,7 @@ struct SettingsListView: View {
     var titleDisplayMode: NavigationBarItem.TitleDisplayMode = .large
     var showsSectionHeaders = true
     var headerView: (() -> AnyView)? = nil
+    var introduction: (() -> String)? = nil
 
     var body: some View {
         List {
@@ -659,6 +906,15 @@ struct SettingsListView: View {
                 Section {
                     headerView()
                 }
+            }
+
+            if let introduction {
+                Text(introduction())
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
             }
 
             ForEach(listModel.sections) { section in
@@ -673,6 +929,20 @@ struct SettingsListView: View {
         }
         .settingsListStyle(title: title, titleDisplayMode: titleDisplayMode)
         .settingsPresentation(presenter: presenter)
+        // Attach refresh behavior to the List, never around a Section: a container such as
+        // TimelineView makes List render that entire section as one cell.
+        .modifier(DexcomShareUploadAgeRefresh(
+            isRelevant: listModel.sections.contains { section in
+                section.section().rows.contains { $0.id == "sharingServices.dexcomShare" || $0.id == "dexcomShare.connection.status" }
+            },
+            refresh: { listModel.reload(.all) }
+        ))
+        .modifier(SpeakReadingsSettingsRefresh(
+            isRelevant: listModel.sections.contains { section in
+                section.section().rows.contains { $0.id == "speak.schedule" || $0.id == "sharingServices.speakReadings" }
+            },
+            refresh: { listModel.reload(.all) }
+        ))
     }
 }
 
@@ -1080,8 +1350,6 @@ private struct SettingsNativeRowView: View {
             reload(row.reloadScope ?? .section(sectionID))
         case let .showMessage(title, message):
             presenter.showMessage(title: title, message: message)
-        case .sendTraceEmail:
-            presenter.requestTraceEmail()
         case .troubleshootingLog:
             presenter.showTroubleshootingLog()
         case nil:
@@ -1267,10 +1535,7 @@ struct SettingsRowTextView: View {
                     }
 
                     if let indicator {
-                        Image(systemName: indicator.symbolName)
-                            .font(.caption2)
-                            .foregroundStyle(isEnabled ? indicator.color : .gray)
-                            .accessibilityLabel(indicator.accessibilityLabel ?? "")
+                        SettingsIndicatorView(indicator: indicator, isEnabled: isEnabled)
                     }
 
                     Text(title)
@@ -1286,10 +1551,7 @@ struct SettingsRowTextView: View {
                 if let detail {
                     HStack(spacing: 5) {
                         if let detailIndicator {
-                            Image(systemName: detailIndicator.symbolName)
-                                .font(.caption2)
-                                .foregroundStyle(isEnabled ? detailIndicator.color : .gray)
-                                .accessibilityLabel(detailIndicator.accessibilityLabel ?? "")
+                            SettingsIndicatorView(indicator: detailIndicator, isEnabled: isEnabled)
                         }
 
                         Text(detail)
@@ -1512,7 +1774,10 @@ struct SettingsTextEntryView: View {
                     HStack(spacing: 6) {
                         TextField(textEntry.placeholder ?? "", text: $value)
                             .keyboardType(textEntry.keyboardType?.uiKeyboardType ?? .default)
+                            .textInputAutocapitalization(textEntry.keyboardType?.disablesAutomaticTextChanges == true ? .never : nil)
+                            .autocorrectionDisabled(textEntry.keyboardType?.disablesAutomaticTextChanges == true)
                             .multilineTextAlignment(.trailing)
+                            .foregroundStyle(ConstantsAppColors.rowDetailText)
                             .frame(minWidth: 70, idealWidth: 90, maxWidth: 120)
 
                         if let unitText = textEntry.unitText {
@@ -1524,6 +1789,9 @@ struct SettingsTextEntryView: View {
             } else {
                 TextField(textEntry.placeholder ?? "", text: $value)
                     .keyboardType(textEntry.keyboardType?.uiKeyboardType ?? .default)
+                    .textInputAutocapitalization(textEntry.keyboardType?.disablesAutomaticTextChanges == true ? .never : nil)
+                    .autocorrectionDisabled(textEntry.keyboardType?.disablesAutomaticTextChanges == true)
+                    .foregroundStyle(ConstantsAppColors.rowDetailText)
             }
 
             if let validationMessage {
@@ -1543,8 +1811,14 @@ struct SettingsTextEntryView: View {
                     submit()
                 }
                 .tint(ConstantsAppColors.toolbarAction)
-                .disabled(!hasModifiedValue)
+                // A validator is part of the editor contract, so an invalid value must never
+                // enable the confirmation action. This also gives version fields immediate,
+                // deterministic feedback instead of rejecting them only after OK is tapped.
+                .disabled(!canSubmit)
             }
+        }
+        .onChange(of: value) { newValue in
+            validationMessage = textEntry.validator?(newValue)
         }
         .onDisappear {
             guard !didComplete else { return }
@@ -1560,6 +1834,10 @@ struct SettingsTextEntryView: View {
         }
 
         return value != initialValue
+    }
+
+    private var canSubmit: Bool {
+        hasModifiedValue && textEntry.validator?(value) == nil
     }
 
     /// Validates and commits the text entry. Validation errors stay on the pushed
