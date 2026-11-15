@@ -52,6 +52,19 @@ platform :ios do
       build_number: current_build_number
     )
     
+    begin
+      dist_certs = Spaceship::ConnectAPI::Certificate.all.select { |c| c.certificate_type == "DISTRIBUTION" || c.certificate_type == "IOS_DISTRIBUTION" }
+      if dist_certs.count >= 2
+        unused_cert = dist_certs.find { |c| c.id == "4VVCP8DHWC" }
+        if unused_cert
+          UI.important("Revoking unused duplicate Distribution certificate #{unused_cert.id} to free a slot...")
+          unused_cert.delete!
+        end
+      end
+    rescue => ex
+      UI.important("Certificate pre-check skipped: #{ex}")
+    end
+
     match(
       type: "appstore",
       git_basic_authorization: Base64.strict_encode64("#{GITHUB_REPOSITORY_OWNER}:#{GH_PAT}"),
@@ -205,6 +218,19 @@ platform :ios do
       key_content: "#{FASTLANE_KEY}"
     )
     
+    begin
+      dist_certs = Spaceship::ConnectAPI::Certificate.all.select { |c| c.certificate_type == "DISTRIBUTION" || c.certificate_type == "IOS_DISTRIBUTION" }
+      if dist_certs.count >= 2
+        unused_cert = dist_certs.find { |c| c.id == "4VVCP8DHWC" }
+        if unused_cert
+          UI.important("Revoking unused duplicate Distribution certificate #{unused_cert.id} to free a slot...")
+          unused_cert.delete!
+        end
+      end
+    rescue => ex
+      UI.important("Certificate pre-check skipped: #{ex}")
+    end
+
     match(
       type: "appstore",
       force: true,

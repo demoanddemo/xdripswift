@@ -225,12 +225,18 @@ jobs:
       - name: Install Project Dependencies
         run: bundle install
 
-      # Patch Fastlane Match to not print tables
+      # Patch Fastlane Match to not print tables and to auto-renew expired certificates
       - name: Patch Match Tables
         run: |
-          TABLE_PRINTER_PATH="$(bundle info --path fastlane)/match/lib/match/table_printer.rb"
+          FASTLANE_GEM_PATH="$(bundle info --path fastlane)"
+          TABLE_PRINTER_PATH="$FASTLANE_GEM_PATH/match/lib/match/table_printer.rb"
           if [ -f "$TABLE_PRINTER_PATH" ]; then
             sed -i "" "/puts(Terminal::Table.new(params))/d" "$TABLE_PRINTER_PATH"
+          fi
+          MATCH_RUNNER_PATH="$FASTLANE_GEM_PATH/match/lib/match/runner.rb"
+          if [ -f "$MATCH_RUNNER_PATH" ]; then
+            sed -i "" "s/renew_expired_certs: false/renew_expired_certs: true/g" "$MATCH_RUNNER_PATH"
+            sed -i "" "s/self.cache.reset_certificates/self.cache.reset_certificates; params[:force] = true/g" "$MATCH_RUNNER_PATH"
           fi
 
       # Sync the GitHub runner clock with the Windows time server (workaround as suggested in https://github.com/actions/runner/issues/2996)
